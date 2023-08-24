@@ -27,6 +27,7 @@
 #include <AP_Winch/AP_Winch_config.h>
 #include <AP_AHRS/AP_AHRS_config.h>
 #include <AP_Arming/AP_Arming_config.h>
+#include <AP_Follow/AP_Follow.h>
 
 #include "ap_message.h"
 
@@ -523,6 +524,7 @@ protected:
     void handle_set_mode(const mavlink_message_t &msg);
     void handle_command_int(const mavlink_message_t &msg);
 
+    MAV_RESULT handle_command_do_follow(const mavlink_command_int_t &packet, const mavlink_message_t &msg);
     virtual MAV_RESULT handle_command_int_packet(const mavlink_command_int_t &packet, const mavlink_message_t &msg);
     MAV_RESULT handle_command_int_external_position_estimate(const mavlink_command_int_t &packet);
 
