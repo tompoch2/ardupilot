@@ -55,7 +55,6 @@
 #include <AP_Arming/AP_Arming.h>
 #include <AP_Logger/AP_Logger.h>
 #include <AP_GPS/AP_GPS.h>
-#include <AP_Vehicle/AP_Vehicle.h>
 
 #define INTERNAL_TEMPERATURE_CLAMP 35.0f
 
@@ -947,6 +946,7 @@ bool AP_Baro::healthy(uint8_t instance) const {
 }
 #endif
 
+#if AP_AHRS_ENABLED
 /*
   update field elevation value
  */
@@ -986,6 +986,7 @@ void AP_Baro::update_field_elevation(void)
     }
 #endif
 }
+#endif
 
 
 /* register a new sensor, claiming a sensor slot. If we are out of
