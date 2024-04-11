@@ -561,9 +561,9 @@ public:
     float get_yaw_rad() const { return yaw; }
 
     // roll/pitch/yaw euler angles, all in radians
-    float get_roll_deg() const { return roll_deg; }
-    float get_pitch_deg() const { return pitch_deg; }
-    float get_yaw_deg() const { return yaw_deg; }
+    float get_roll_deg() const { return rpy_deg[0]; }
+    float get_pitch_deg() const { return rpy_deg[1]; }
+    float get_yaw_deg() const { return rpy_deg[2]; }
 
     // helper trig value accessors
     float cos_roll() const  {
@@ -586,9 +586,7 @@ public:
     }
 
     // floating point Euler angles (Degrees)
-    float roll_deg;
-    float pitch_deg;
-    float yaw_deg;
+    float rpy_deg[3];
 
     // integer Euler angles (Degrees * 100)
     int32_t roll_sensor;
