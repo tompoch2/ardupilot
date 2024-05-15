@@ -234,7 +234,7 @@ void GPIO::pinMode(uint8_t pin, uint8_t pin_type)
             break;
         case 3:
             g->mode = PAL_MODE_INPUT_PULLDOWN;
-            g->is_input = 0;
+            g->is_input = 1;
             break;
         }
 #if defined(STM32F7) || defined(STM32H7) || defined(STM32F4) || defined(STM32G4) || defined(STM32L4) || defined(STM32L4PLUS)
