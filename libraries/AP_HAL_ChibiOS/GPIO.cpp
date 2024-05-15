@@ -222,15 +222,19 @@ void GPIO::pinMode(uint8_t pin, uint8_t pin_type)
         switch(pin_type) {
         case 0:
             g->mode = PAL_MODE_INPUT;
+            g->is_input = 1;
             break;
         case 1:
             g->mode = PAL_MODE_OUTPUT_PUSHPULL;
+            g->is_input = 0;
             break;
         case 2:
             g->mode = PAL_MODE_INPUT_PULLUP;
+            g->is_input = 1;
             break;
         case 3:
             g->mode = PAL_MODE_INPUT_PULLDOWN;
+            g->is_input = 0;
             break;
         }
 #if defined(STM32F7) || defined(STM32H7) || defined(STM32F4) || defined(STM32G4) || defined(STM32L4) || defined(STM32L4PLUS)
@@ -243,7 +247,6 @@ void GPIO::pinMode(uint8_t pin, uint8_t pin_type)
         }
 #endif
         palSetLineMode(g->pal_line, g->mode);
-        g->is_input = 0;
     }
 }
 
