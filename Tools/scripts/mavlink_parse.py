@@ -7,7 +7,7 @@ from itertools import chain
 from dataclasses import dataclass, astuple
 
 from pymavlink.dialects.v20 import (
-    common, icarous, cubepilot, uAvionix, ardupilotmega
+    common, icarous, cubepilot, uAvionix, ardupilotmega, development
 )
 
 class MAVLinkDialect(StrEnum):
@@ -18,6 +18,7 @@ class MAVLinkDialect(StrEnum):
     CUBEPILOT = 'cubepilot'
     UAVIONIX = 'uAvionix'
     ARDUPILOTMEGA = 'ardupilotmega'
+    DEVELOPMENT = 'development'
     UNKNOWN = 'UNKNOWN'
 
 
