@@ -198,7 +198,12 @@ class MAVLinkDetector:
             folder = file.parent.stem
             if folder in exclude_libraries:
                 continue
-            text = file.read_text()
+
+            try:
+                text = file.read_text()
+            except FileNotFoundError:  # Broken symlink
+                continue
+
             source = f'{folder}/{file.name}'
             if file == self.COMMON_FILE:
                 for mavlink, ap_message in self.find_requestable_messages(text):
@@ -267,7 +272,11 @@ class MAVLinkDetector:
     def get_stream_groups(self, vehicle):
         stream_groups = ['stream_groups']
 
-        text = (self.BASE_DIR / vehicle / self.STREAM_GROUP_FILE).read_text()
+        try:
+            text = (self.BASE_DIR / vehicle / self.STREAM_GROUP_FILE).read_text()
+        except FileNotFoundError:  # No stream groups
+            return []
+
         for group_name, message_data in self.STREAM_GROUPS.findall(text):
             stream_groups.extend(sorted(
                 MAVLinkMessage(self._ap_to_mavlink.get(ap_message, ap_message),
