@@ -48,7 +48,6 @@ local hdg_ok_t_lim = 5000       -- Stop steering towards wind after hdg_ok_t_lim
 
 -- GCS text levels
 local _INFO = 6
-local _NOTICE = 5
 local _WARNING = 4
 
 -- Plane flight modes
