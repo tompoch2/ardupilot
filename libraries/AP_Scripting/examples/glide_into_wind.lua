@@ -11,32 +11,35 @@
 -- impact energy at landing.
 
 -- Functionality and setup
--- 1. Set SCRIPT_ENABLE = 1
+-- 1. Set SCR_ENABLE = 1
 -- 2. Put script in scripts folder, boot twice
 -- 3. Two new paramters has appeared:
 --    - GLIDE_WIND_ENABL (0=disable, 1=enable),
 --    - GLIDE_WIND_RKP (kP for RC-override roll, recommended setting is 4). 
 -- 4. Set RC_OVERRIDE_TIME to 0.3 if this does not conflict with other scripts.
 -- 5. Set GLIDE_WIND_ENABL = 1, GLIDE_WIND_RKP = 2 (Start easy, increase if needed)
--- 6. Set FS_LONG_TIMEOUT
--- 7. Read the docs on FS: 
+-- 6. Read the docs on FS: 
 --    https://ardupilot.org/plane/docs/apms-failsafe-function.html#failsafe-parameters-and-their-meanings
--- 8. Set FS_LONG_ACTN = 2
--- 9. Set FS_LONG_TIMEOUT as appropriate
--- 10. Set FS_GCS_ENABL = 1
--- 11. If in simulation, set SIM_WIND_SPD = 4 to get a reliable wind direction.
--- 12. Test in simulation: Fly a mission, disable heartbeats by typing 'set
+-- 7. Set FS_LONG_ACTN = 2
+-- 8. Set FS_LONG_TIMEOUT as appropriate
+-- 9. Set FS_GCS_ENABL = 1
+-- 10. If in simulation, set SIM_WIND_SPD = 4 to get a reliable wind direction.
+-- 11. Test in simulation: Fly a mission, disable heartbeats by typing 'set
 --     heartbeat 0' into mavproxy/SITL, monitor what happens in the console
--- 13. Test in flight: Fly a mission, monitor estimated wind direction from GCS,
+-- 12. Test in flight: Fly a mission, monitor estimated wind direction from GCS,
 --     then fail GCS link and see what happens.
--- 14. Once heading is into wind script will stop steering and not steer again
+-- 13. Once heading is into wind script will stop steering and not steer again
 --     until link is recovered and lost an other time.
--- 15. Script is aborted by changing flight mode, from RC or recovered GCS.
+-- 14. Script is aborted by changing flight mode, from RC or recovered GCS.
 
 -- Credit
 -- This script is developed by UASolutions, commissioned by, and in cooperation
 -- with Remote.aero, with funding from Swedish AeroEDIH, in response to a need
 -- from the Swedish Sea Rescue Society (Sjöräddningssällskapet, SSRS). 
+
+-- Disable diagnostics related to reading paramters to pass linter
+---@diagnostic disable: need-check-nil
+---@diagnostic disable: param-type-mismatch
 
 -- Tuning parameters
 local looptime = 200            -- Short looptime
@@ -116,7 +119,7 @@ function _init()
 
   -- Get the rc channel to override 
   RC_ROLL = rc:get_channel(RCMAP_ROLL:get())
-
+  
   -- init last seen
   last_seen = gcs:last_seen()
 
@@ -218,7 +221,7 @@ function update()
         end
 
         if override_enable then
-          RC_ROLL:set_override(1500+roll)  -- Is active for RC_OVErRIDE_TIME (default 3s)
+          RC_ROLL:set_override(1500+roll)  -- Is active for RC_OVERRIDE_TIME (default 3s)
         end
       end
     end
