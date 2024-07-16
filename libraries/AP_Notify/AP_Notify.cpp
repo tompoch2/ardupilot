@@ -287,35 +287,29 @@ void AP_Notify::add_backends(void)
                 break;
             case Notify_LED_Board:
                 // select the most appropriate built in LED driver type
-#if CONFIG_HAL_BOARD == HAL_BOARD_LINUX
-  #if CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_NAVIO2
+#if AP_NOTIFY_SYSFS_LED_ENABLED
                 ADD_BACKEND(NEW_NOTHROW Led_Sysfs("rgb_led0", "rgb_led2", "rgb_led1"));
-  #elif CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_EDGE
+#elif AP_NOTIFY_RCOUTPUTRGBLEDINVERTED_LED_ENABLED
                 ADD_BACKEND(NEW_NOTHROW RCOutputRGBLedInverted(12, 13, 14));
-  #elif CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_BH
+#elif AP_NOTIFY_RCOUTPUTRGBLED_LED_ENABLED
                 ADD_BACKEND(NEW_NOTHROW RCOutputRGBLed(HAL_RCOUT_RGBLED_RED, HAL_RCOUT_RGBLED_GREEN, HAL_RCOUT_RGBLED_BLUE));
-  #elif CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_DISCO
+#elif AP_NOTIFY_DISCO_LED_ENABLED
                 ADD_BACKEND(NEW_NOTHROW DiscoLED());
-  #elif CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_NAVIGATOR
+#elif AP_NOTIFY_NAVIGATOR_LED_ENABLED
                 ADD_BACKEND(NEW_NOTHROW NavigatorLED());
-  #elif CONFIG_HAL_BOARD_SUBTYPE == HAL_BOARD_SUBTYPE_LINUX_OBAL_V1
-            ADD_BACKEND(NEW_NOTHROW AP_BoardLED2());
-  #endif
-#endif // CONFIG_HAL_BOARD == HAL_BOARD_LINUX
+#endif
 
 #if AP_NOTIFY_EXTERNALLED_ENABLED
                 ADD_BACKEND(NEW_NOTHROW ExternalLED()); // despite the name this is a built in set of onboard LED's
 #endif
 
-#if defined(HAL_HAVE_PIXRACER_LED)
+#if AP_NOTIFY_GPIO_LED_RGB_ENABLED
                 ADD_BACKEND(NEW_NOTHROW PixRacerLED());
-#elif (defined(HAL_GPIO_A_LED_PIN) && defined(HAL_GPIO_B_LED_PIN) && defined(HAL_GPIO_C_LED_PIN))
-  #if AP_NOTIFY_VRBOARD_LED_ENABLED
+#elif AP_NOTIFY_VRBOARD_LED_ENABLED
                 ADD_BACKEND(NEW_NOTHROW VRBoard_LED());
-  #else
+#elif AP_NOTIFY_GPIO_LED_3_ENABLED
                 ADD_BACKEND(NEW_NOTHROW AP_BoardLED());
-  #endif
-#elif (defined(HAL_GPIO_A_LED_PIN) && defined(HAL_GPIO_B_LED_PIN))
+#elif AP_NOTIFY_GPIO_LED_2_ENABLED
                 ADD_BACKEND(NEW_NOTHROW AP_BoardLED2());
 #endif
                 break;
