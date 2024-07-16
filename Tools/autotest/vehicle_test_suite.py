@@ -11894,16 +11894,12 @@ Also, ignores heartbeats not from our target system'''
         for locs in list_of_list_of_locs:
             if isinstance(locs, dict):
                 # circular fence
-                if vertex_type == mavutil.mavlink.MAV_CMD_NAV_FENCE_POLYGON_VERTEX_EXCLUSION:
-                    v = mavutil.mavlink.MAV_CMD_NAV_FENCE_CIRCLE_EXCLUSION
-                else:
-                    v = mavutil.mavlink.MAV_CMD_NAV_FENCE_CIRCLE_INCLUSION
                 item = self.mav.mav.mission_item_int_encode(
                     target_system,
                     target_component,
                     seq, # seq
                     mavutil.mavlink.MAV_FRAME_GLOBAL,
-                    v,
+                    vertex_type,
                     0, # current
                     0, # autocontinue
                     locs["radius"], # p1
