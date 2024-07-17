@@ -140,4 +140,5 @@ private:
 
     float temp_filtered;
     LowPassFilter2pFloat temp_filter;
+    uint32_t sampling_rate_hz;
 };
