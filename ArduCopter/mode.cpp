@@ -425,6 +425,16 @@ void Copter::update_flight_mode()
 #endif
 
     flightmode->run();
+
+#if HAL_MOUNT_ENABLED
+    {
+        const bool is_landing = flightmode->is_landing();
+        if (is_landing && !was_landing) {
+            camera_mount.vehicle_has_started_to_land();
+        }
+        was_landing = is_landing;
+    }
+#endif
 }
 
 // exit_mode - high level call to organise cleanup as a flight mode is exited
