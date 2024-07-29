@@ -202,15 +202,23 @@ void ModeAuto::set_submode(SubMode new_submode)
     }
 }
 
+bool ModeAuto::option_is_enabled(Option option) const
+{
+    return ((copter.g2.auto_options & (uint32_t)option) != 0);
+}
+
 bool ModeAuto::allows_arming(AP_Arming::Method method) const
 {
-    return ((copter.g2.auto_options & (uint32_t)Options::AllowArming) != 0) && !auto_RTL;
-};
+    if (auto_RTL) {
+        return false;
+    }
+    return option_is_enabled(Option::AllowArming);
+}
 
 #if WEATHERVANE_ENABLED == ENABLED
 bool ModeAuto::allows_weathervaning() const
 {
-    return (copter.g2.auto_options & (uint32_t)Options::AllowWeatherVaning) != 0;
+    return option_is_enabled(Option::AllowWeatherVaning);
 }
 #endif
 
@@ -480,11 +488,6 @@ void ModeAuto::land_start()
     copter.landinggear.deploy_for_landing();
 #endif
 
-#if AP_FENCE_ENABLED
-    // disable the fence on landing
-    copter.fence.auto_disable_fence_for_landing();
-#endif
-
     // reset flag indicating if pilot has applied roll or pitch inputs during landing
     copter.ap.land_repo_active = false;
 
@@ -638,7 +641,7 @@ void PayloadPlace::start_descent()
 // returns true if pilot's yaw input should be used to adjust vehicle's heading
 bool ModeAuto::use_pilot_yaw(void) const
 {
-    const bool allow_yaw_option = (copter.g2.auto_options.get() & uint32_t(Options::IgnorePilotYaw)) == 0;
+    const bool allow_yaw_option = !option_is_enabled(Option::IgnorePilotYaw);
     const bool rtl_allow_yaw = (_mode == SubMode::RTL) && copter.mode_rtl.use_pilot_yaw();
     const bool landing = _mode == SubMode::LAND;
     return allow_yaw_option || rtl_allow_yaw || landing;
@@ -778,18 +781,6 @@ bool ModeAuto::start_command(const AP_Mission::Mission_Command& cmd)
     case MAV_CMD_DO_MOUNT_CONTROL:          // 205
         // point the camera to a specified angle
         do_mount_control(cmd);
-        break;
-    
-    case MAV_CMD_DO_FENCE_ENABLE:
-#if AP_FENCE_ENABLED
-        if (cmd.p1 == 0) { //disable
-            copter.fence.enable(false);
-            gcs().send_text(MAV_SEVERITY_INFO, "Fence Disabled");
-        } else { //enable fence
-            copter.fence.enable(true);
-            gcs().send_text(MAV_SEVERITY_INFO, "Fence Enabled");
-        }
-#endif //AP_FENCE_ENABLED
         break;
 
 #if AC_NAV_GUIDED == ENABLED
@@ -1039,7 +1030,7 @@ void ModeAuto::takeoff_run()
 {
     // if the user doesn't want to raise the throttle we can set it automatically
     // note that this can defeat the disarm check on takeoff
-    if ((copter.g2.auto_options & (int32_t)Options::AllowTakeOffWithoutRaisingThrottle) != 0) {
+    if (option_is_enabled(Option::AllowTakeOffWithoutRaisingThrottle)) {
         copter.set_auto_armed(true);
     }
     auto_takeoff.run();

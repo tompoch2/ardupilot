@@ -290,6 +290,8 @@ AP_HW_FlywooF405HD_AIOv2             1180
 AP_HW_ESP32_PERIPH                   1205
 AP_HW_ESP32S3_PERIPH                 1206
 
+AP_HW_CBUnmanned-CM405-FC            1301
+
 AP_HW_KHA_ETH                        1315
 
 AP_HW_CUBEORANGE_PERIPH              1400
@@ -311,6 +313,8 @@ AP_HW_JHEMCU-H743HD                  1411
 AP_HW_LongbowF405                    1422
 
 AP_HW_MountainEagleH743              1444
+
+AP_HW_StellarF4                      1500
 
 AP_HW_SakuraRC-H743                  2714
 

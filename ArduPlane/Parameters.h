@@ -343,6 +343,7 @@ public:
 
         k_param_mixing_offset,
         k_param_dspoiler_rud_rate,
+        k_param_airspeed_stall,
 
         k_param_logger = 253, // Logging Group
 
@@ -356,6 +357,8 @@ public:
         k_param_acro_yaw_rate,
         k_param_takeoff_throttle_max_t,
         k_param_autotune_options,
+        k_param_takeoff_throttle_min,
+        k_param_takeoff_options,
     };
 
     AP_Int16 format_version;
