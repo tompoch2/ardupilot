@@ -18,7 +18,7 @@
  */
 #include "AP_Airspeed_AUAV.h"
 
-#if AP_Airspeed_AUAV_ENABLED
+#ifdef AP_Airspeed_AUAV_ENABLED
 
 #define AUAV_AIRSPEED_I2C_ADDR 0x26
 
@@ -117,9 +117,7 @@ void AP_Airspeed_AUAV::_measure()
 */
 float AP_Airspeed_AUAV::_get_pressure(int16_t dp_raw) const
 {
-    const float P_max = get_psi_range();
-    
-    return press;
+    return 0.0f;
 }
 
 /*
@@ -134,7 +132,7 @@ float AP_Airspeed_AUAV::_get_temperature(int16_t dT_raw) const
 // read the values from the sensor
 void AP_Airspeed_AUAV::_collect()
 {
-    uint8_t data[4];
+    // uint8_t data[4];
 
     _measurement_started_ms = 0;
 

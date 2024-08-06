@@ -16,7 +16,7 @@
 
 #include "AP_Airspeed_config.h"
 
-#if AP_Airspeed_AUAV_ENABLED
+#ifdef AP_Airspeed_AUAV_ENABLED
 
 /*
   backend driver for airspeed from I2C

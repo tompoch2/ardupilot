@@ -444,7 +444,7 @@ void AP_Airspeed::allocate()
             break;
         case TYPE_AUAV:
 #ifdef AP_AIRSPEED_AUAV_ENABLED
-            sensor[i] = AP_Airspeed_AUAV(*this, i);
+            sensor[i] = NEW_NOTHROW AP_Airspeed_AUAV(*this, i);
 #endif
             break;
         }
