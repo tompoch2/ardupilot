@@ -48,14 +48,13 @@ private:
     void _measure();
     void _collect();
     void _timer();
-    void _voltage_correction(float &diff_press_pa, float &temperature);
-    float _get_pressure(int16_t dp_raw) const;
-    float _get_temperature(int16_t dT_raw) const;
     bool _read_coefficients();
+    uint32_t _read_register(uint8_t cmd);
     
     uint32_t _last_sample_time_ms;
     uint32_t _measurement_started_ms;
     AP_HAL::OwnPtr<AP_HAL::I2CDevice> _dev;
+    float range_inH2O;
 
     float DLIN_A , DLIN_B, DLIN_C, DLIN_D, D_Es, D_TC50H, D_TC50L; // Diff coeffs
     float pressure;

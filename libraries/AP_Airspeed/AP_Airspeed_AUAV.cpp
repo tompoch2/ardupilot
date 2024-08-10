@@ -54,7 +54,6 @@ bool AP_Airspeed_AUAV::probe(uint8_t bus, uint8_t address)
     hal.scheduler->delay(10);
     _collect();
 
-    GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "AUAV PROBE");
     return _last_sample_time_ms != 0;
 
 }
@@ -62,8 +61,6 @@ bool AP_Airspeed_AUAV::probe(uint8_t bus, uint8_t address)
 // probe and initialise the sensor
 bool AP_Airspeed_AUAV::init()
 {
-    GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "AUAV INIT");
-
     if (bus_is_configured()) {
         // the user has configured a specific bus
         if (probe(get_bus(), AUAV_AIRSPEED_I2C_ADDR)) {
@@ -95,6 +92,8 @@ found_sensor:
 
     // drop to 2 retries for runtime
     _dev->set_retries(2);
+
+    _read_coefficients();
     
     _dev->register_periodic_callback(20000,
                                      FUNCTOR_BIND_MEMBER(&AP_Airspeed_AUAV::_timer, void));
@@ -104,7 +103,6 @@ found_sensor:
 // start a measurement
 void AP_Airspeed_AUAV::_measure()
 {
-    GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "AUAV MEASURE");
     _measurement_started_ms = 0;
     uint8_t cmd = 0xAA;
     if (_dev->transfer(&cmd, 1, nullptr, 0)) {
@@ -112,32 +110,10 @@ void AP_Airspeed_AUAV::_measure()
     }
 }
 
-/*
-  this equation is an inversion of the equation in the
-  pressure transfer function figure on page 4 of the datasheet
-  
-  We negate the result so that positive differential pressures
-  are generated when the bottom port is used as the static
-  port on the pitot and top port is used as the dynamic port
-*/
-float AP_Airspeed_AUAV::_get_pressure(int16_t dp_raw) const
-{
-    return 0.0f;
-}
-
-/*
-  convert raw temperature to temperature in degrees C
- */
-float AP_Airspeed_AUAV::_get_temperature(int16_t dT_raw) const
-{
-    return 0.0f;
-}
-
 // read the values from the sensor
 void AP_Airspeed_AUAV::_collect()
 {
     _measurement_started_ms = 0; // It should always get reset by _measure. This is a safety to handle failures of i2c bus
-    GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "AUAV COLLECT");
     uint8_t inbuf[7];
     if (!_dev->read((uint8_t *)&inbuf, sizeof(inbuf))) {
         return;
@@ -150,7 +126,7 @@ void AP_Airspeed_AUAV::_collect()
 
     // Convert unsigned 24-bit pressure value to signed +/- 23-bit:
     iPraw = (inbuf[1]<<16) + (inbuf[2]<<8) + inbuf[3] - 0x800000;
-    // Convert signed 23-bit value to float, normalized to +/- 1.0:
+    // Convert signed 23-bit valu11e to float, normalized to +/- 1.0:
     float Pnorm = (float)iPraw; // cast to float
     Pnorm /= (float) 0x7FFFFF;
     AP3 = DLIN_A * Pnorm * Pnorm * Pnorm; // A*Pout^3
@@ -180,60 +156,46 @@ void AP_Airspeed_AUAV::_collect()
     _last_sample_time_ms = AP_HAL::millis();
 }
 
-/**
-   correct for 5V rail voltage if the system_power ORB topic is
-   available
-
-   See http://uav.tridgell.net/MS4525/MS4525-offset.png for a graph of
-   offset versus voltage for 3 sensors
- */
-void AP_Airspeed_AUAV::_voltage_correction(float &diff_press_pa, float &temperature)
+uint32_t AP_Airspeed_AUAV::_read_register(uint8_t cmd)
 {
+    uint8_t raw_bytes1[3];
+    if (!_dev->transfer(&cmd,1,(uint8_t *)&raw_bytes1, sizeof(raw_bytes1))) {
+        return 0;
+    }
+    uint8_t raw_bytes2[3];
+    uint8_t cmd2 = cmd + 1;
+    if (!_dev->transfer(&cmd2,1,(uint8_t *)&raw_bytes2, sizeof(raw_bytes2))) {
+        return 0;
+    }
+    uint32_t result = ((uint32_t)raw_bytes1[1] << 24) | ((uint32_t)raw_bytes1[2] << 16) | ((uint32_t)raw_bytes2[1] << 8) | (uint32_t)raw_bytes2[2];
+    return result;
 }
 
 bool AP_Airspeed_AUAV::_read_coefficients()
 {
-    // uint8_t raw_bytes[3];
-    // uint8_t cmd1 = 0x31;
-    // if (!_dev->transfer(&cmd1,1,(uint8_t *)&raw_bytes, sizeof(raw_bytes))) {
-    //     return false;
-    // }
-    // uint8_t cmd2 = 0x31;
-    // if (!_dev->transfer(&cmd2,1,(uint8_t *)&raw_bytes, sizeof(raw_bytes))) {
-    //     return false;
-    // }
-    // const int32_t Tref_Counts = 7576807; // temperature counts at 25C
-    // const float TC50Scale = 100.0 * 100.0 * 167772.2; // scale TC50 to 1.0% FS0
-    // float AP3, BP2, CP, Corr, Pcorr, Pdiff, TCadj, TC50, Pnfso, Tcorr, Pcorrt;
-    // int32_t iPraw, Tdiff, iTemp, iPCorrected;
-    // uint32_t PComp;
+    int32_t i32A = 0, i32B =0, i32C =0, i32D=0, i32TC50HLE=0;
+    int8_t i8TC50H = 0, i8TC50L = 0, i8Es = 0;
+    i32A = _read_register(0x2B);
+    DLIN_A = ((float)(i32A))/((float)(0x7FFFFFFF));
 
-    // // Convert unsigned 24-bit pressure value to signed +/- 23-bit:
-    // iPraw = (inbuf[1]<<16) + (inbuf[2]<<8) + inbuf[3] - 0x800000;
-    // // Convert signed 23-bit value to float, normalized to +/- 1.0:
-    // Pnorm = (float)iPraw; // cast to float
-    // Pnorm /= (float) 0x7FFFFF;
-    // AP3 = DLIN_A * Pnorm * Pnorm * Pnorm; // A*Pout^3
-    // BP2 = DLIN_B * Pnorm * Pnorm; // B*Pout^2
-    // CP = DLIN_C * Pnorm; // C*POut
-    // Corr = AP3 + BP2 + CP + DLIN_D; // Linearity correction term
-    // Pcorr = Pnorm + Corr; // Corrected P, range +/-1.0.
+    i32B = _read_register(0x2D);
+    DLIN_B = (float)(i32B)/(float)(0x7FFFFFFF);
 
-    // // Compute difference from reference temperature, in sensor counts:
-    // iTemp = (inbuf[4]<<16) + (inbuf[5]<<8) + inbuf[6]; // 24-bit temperature
-    // Tdiff = iTemp – Tref_Counts; // see constant defined above.
-    // Pnfso = (Pcorr + 1.0)/2.0;
-    // //TC50: Select High/Low, based on current temp above/below 25C:
-    // if (Tdiff > 0)
-    //     TC50 = D_TC50H;
-    // else
-    //     TC50 = D_TC50L;
-    // // Find absolute difference between midrange and reading (abs(Pnfso-0.5)):
-    // if (Pnfso > 0.5)
-    //     Pdiff = Pnfso - 0.5;
-    // else
-    //     Pdiff = 0.5 - Pnfso;
-    return false;
+    i32C = _read_register(0x2F);
+    DLIN_C = (float)(i32C)/(float)(0x7FFFFFFF);
+
+    i32D = _read_register(0x31);
+    DLIN_D = (float)(i32D)/(float)(0x7FFFFFFF);
+
+    i32TC50HLE = _read_register(0x33);
+    i8TC50H = (i32TC50HLE >> 24) & 0xFF; // 55 H
+    i8TC50L = (i32TC50HLE >> 16) & 0xFF; // 55 L
+    i8Es = (i32TC50HLE ) & 0xFF; // 56 L
+    D_Es = (float)(i8Es)/(float)(0x7F);
+    D_TC50H = (float)(i8TC50H)/(float)(0x7F);
+    D_TC50L = (float)(i8TC50L)/(float)(0x7F);
+
+    return true; //Need to actually check
 }
 
 // 50Hz timer
@@ -254,7 +216,6 @@ void AP_Airspeed_AUAV::_timer()
 bool AP_Airspeed_AUAV::get_differential_pressure(float &_pressure)
 {
     WITH_SEMAPHORE(sem);
-    
     _pressure = 250+1.25*(pressure-(0.1f*pow(2,23))/pow(2,24))*1000;
     return true;
 }
@@ -263,7 +224,7 @@ bool AP_Airspeed_AUAV::get_differential_pressure(float &_pressure)
 bool AP_Airspeed_AUAV::get_temperature(float &_temperature)
 {
     WITH_SEMAPHORE(sem);
-    _temperature = 240;
+    _temperature = 0;
     return true;
 }
 
