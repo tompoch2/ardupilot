@@ -14,11 +14,11 @@
  */
 
 /*
-  backend driver for airspeed from a I2C MS4525D0 sensor
+  backend driver for airspeed from a I2C AUAV sensor
  */
 #include "AP_Airspeed_AUAV.h"
 
-#ifdef AP_Airspeed_AUAV_ENABLED
+#if AP_AIRSPEED_AUAV_ENABLED
 
 #define AUAV_AIRSPEED_I2C_ADDR 0x26
 
@@ -54,12 +54,16 @@ bool AP_Airspeed_AUAV::probe(uint8_t bus, uint8_t address)
     hal.scheduler->delay(10);
     _collect();
 
+    GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "AUAV PROBE");
     return _last_sample_time_ms != 0;
+
 }
 
 // probe and initialise the sensor
 bool AP_Airspeed_AUAV::init()
 {
+    GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "AUAV INIT");
+
     if (bus_is_configured()) {
         // the user has configured a specific bus
         if (probe(get_bus(), AUAV_AIRSPEED_I2C_ADDR)) {
@@ -84,7 +88,7 @@ bool AP_Airspeed_AUAV::init()
     return false;
 
 found_sensor:
-    _dev->set_device_type(uint8_t(DevType::MS4525));
+    _dev->set_device_type(uint8_t(DevType::AUAV));
     set_bus_id(_dev->get_bus_id());
 
     GCS_SEND_TEXT(MAV_SEVERITY_INFO, "AUAV AIRSPEED[%u]: Found bus %u addr 0x%02x", get_instance(), _dev->bus_num(), _dev->get_bus_address());
@@ -100,6 +104,7 @@ found_sensor:
 // start a measurement
 void AP_Airspeed_AUAV::_measure()
 {
+    GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "AUAV MEASURE");
     _measurement_started_ms = 0;
     uint8_t cmd = 0xAA;
     if (_dev->transfer(&cmd, 1, nullptr, 0)) {
@@ -125,17 +130,53 @@ float AP_Airspeed_AUAV::_get_pressure(int16_t dp_raw) const
  */
 float AP_Airspeed_AUAV::_get_temperature(int16_t dT_raw) const
 {
-    float temp  = ((200.0f * dT_raw) / 2047) - 50;
-    return temp;
+    return 0.0f;
 }
 
 // read the values from the sensor
 void AP_Airspeed_AUAV::_collect()
 {
-    // uint8_t data[4];
+    _measurement_started_ms = 0; // It should always get reset by _measure. This is a safety to handle failures of i2c bus
+    GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "AUAV COLLECT");
+    uint8_t inbuf[7];
+    if (!_dev->read((uint8_t *)&inbuf, sizeof(inbuf))) {
+        return;
+    }
+    const int32_t Tref_Counts = 7576807; // temperature counts at 25C
+    const float TC50Scale = 100.0 * 100.0 * 167772.2; // scale TC50 to 1.0% FS0
+    float AP3, BP2, CP, Corr, Pcorr, Pdiff, TC50, Pnfso, Tcorr, PCorrt;
+    int32_t iPraw, Tdiff, iTemp;
+    // uint32_t PComp;
 
-    _measurement_started_ms = 0;
+    // Convert unsigned 24-bit pressure value to signed +/- 23-bit:
+    iPraw = (inbuf[1]<<16) + (inbuf[2]<<8) + inbuf[3] - 0x800000;
+    // Convert signed 23-bit value to float, normalized to +/- 1.0:
+    float Pnorm = (float)iPraw; // cast to float
+    Pnorm /= (float) 0x7FFFFF;
+    AP3 = DLIN_A * Pnorm * Pnorm * Pnorm; // A*Pout^3
+    BP2 = DLIN_B * Pnorm * Pnorm; // B*Pout^2
+    CP = DLIN_C * Pnorm; // C*POut
+    Corr = AP3 + BP2 + CP + DLIN_D; // Linearity correction term
+    Pcorr = Pnorm + Corr; // Corrected P, range +/-1.0.
 
+    // Compute difference from reference temperature, in sensor counts:
+    iTemp = (inbuf[4]<<16) + (inbuf[5]<<8) + inbuf[6]; // 24-bit temperature
+    Tdiff = iTemp - Tref_Counts; // see constant defined above.
+    Pnfso = (Pcorr + 1.0)/2.0;
+    //TC50: Select High/Low, based on current temp above/below 25C:
+    if (Tdiff > 0)
+        TC50 = D_TC50H;
+    else
+        TC50 = D_TC50L;
+    // Find absolute difference between midrange and reading (abs(Pnfso-0.5)):
+    if (Pnfso > 0.5)
+        Pdiff = Pnfso - 0.5;
+    else
+        Pdiff = 0.5 - Pnfso;
+    Tcorr = (1.0 - (D_Es * 2.5 * Pdiff)) * Tdiff * TC50 / TC50Scale;
+    PCorrt = Pnfso - Tcorr; // corrected P: float, [0 to +1.0)
+    pressure = PCorrt;
+    // PComp = (uint32_t) (PCorrt * (float)0xFFFFFF);
     _last_sample_time_ms = AP_HAL::millis();
 }
 
@@ -148,18 +189,51 @@ void AP_Airspeed_AUAV::_collect()
  */
 void AP_Airspeed_AUAV::_voltage_correction(float &diff_press_pa, float &temperature)
 {
-	const float slope = 65.0f;
-	const float temp_slope = 0.887f;
+}
 
-	/*
-	  apply a piecewise linear correction within range given by above graph
-	 */
-	float voltage_diff = hal.analogin->board_voltage() - 5.0f;
+bool AP_Airspeed_AUAV::_read_coefficients()
+{
+    // uint8_t raw_bytes[3];
+    // uint8_t cmd1 = 0x31;
+    // if (!_dev->transfer(&cmd1,1,(uint8_t *)&raw_bytes, sizeof(raw_bytes))) {
+    //     return false;
+    // }
+    // uint8_t cmd2 = 0x31;
+    // if (!_dev->transfer(&cmd2,1,(uint8_t *)&raw_bytes, sizeof(raw_bytes))) {
+    //     return false;
+    // }
+    // const int32_t Tref_Counts = 7576807; // temperature counts at 25C
+    // const float TC50Scale = 100.0 * 100.0 * 167772.2; // scale TC50 to 1.0% FS0
+    // float AP3, BP2, CP, Corr, Pcorr, Pdiff, TCadj, TC50, Pnfso, Tcorr, Pcorrt;
+    // int32_t iPraw, Tdiff, iTemp, iPCorrected;
+    // uint32_t PComp;
 
-    voltage_diff = constrain_float(voltage_diff, -0.7f, 0.5f);
+    // // Convert unsigned 24-bit pressure value to signed +/- 23-bit:
+    // iPraw = (inbuf[1]<<16) + (inbuf[2]<<8) + inbuf[3] - 0x800000;
+    // // Convert signed 23-bit value to float, normalized to +/- 1.0:
+    // Pnorm = (float)iPraw; // cast to float
+    // Pnorm /= (float) 0x7FFFFF;
+    // AP3 = DLIN_A * Pnorm * Pnorm * Pnorm; // A*Pout^3
+    // BP2 = DLIN_B * Pnorm * Pnorm; // B*Pout^2
+    // CP = DLIN_C * Pnorm; // C*POut
+    // Corr = AP3 + BP2 + CP + DLIN_D; // Linearity correction term
+    // Pcorr = Pnorm + Corr; // Corrected P, range +/-1.0.
 
-	diff_press_pa -= voltage_diff * slope;
-	temperature -= voltage_diff * temp_slope;
+    // // Compute difference from reference temperature, in sensor counts:
+    // iTemp = (inbuf[4]<<16) + (inbuf[5]<<8) + inbuf[6]; // 24-bit temperature
+    // Tdiff = iTemp – Tref_Counts; // see constant defined above.
+    // Pnfso = (Pcorr + 1.0)/2.0;
+    // //TC50: Select High/Low, based on current temp above/below 25C:
+    // if (Tdiff > 0)
+    //     TC50 = D_TC50H;
+    // else
+    //     TC50 = D_TC50L;
+    // // Find absolute difference between midrange and reading (abs(Pnfso-0.5)):
+    // if (Pnfso > 0.5)
+    //     Pdiff = Pnfso - 0.5;
+    // else
+    //     Pdiff = 0.5 - Pnfso;
+    return false;
 }
 
 // 50Hz timer
@@ -177,40 +251,19 @@ void AP_Airspeed_AUAV::_timer()
 }
 
 // return the current differential_pressure in Pascal
-bool AP_Airspeed_AUAV::get_differential_pressure(float &pressure)
+bool AP_Airspeed_AUAV::get_differential_pressure(float &_pressure)
 {
     WITH_SEMAPHORE(sem);
-
-    if ((AP_HAL::millis() - _last_sample_time_ms) > 100) {
-        return false;
-    }
-
-    if (_press_count > 0) {
-        _pressure = _press_sum / _press_count;
-        _press_count = 0;
-        _press_sum = 0;
-    }
-
-    pressure = _pressure;
+    
+    _pressure = 250+1.25*(pressure-(0.1f*pow(2,23))/pow(2,24))*1000;
     return true;
 }
 
 // return the current temperature in degrees C, if available
-bool AP_Airspeed_AUAV::get_temperature(float &temperature)
+bool AP_Airspeed_AUAV::get_temperature(float &_temperature)
 {
     WITH_SEMAPHORE(sem);
-
-    if ((AP_HAL::millis() - _last_sample_time_ms) > 100) {
-        return false;
-    }
-
-    if (_temp_count > 0) {
-        _temperature = _temp_sum / _temp_count;
-        _temp_count = 0;
-        _temp_sum = 0;
-    }
-
-    temperature = _temperature;
+    _temperature = 240;
     return true;
 }
 
