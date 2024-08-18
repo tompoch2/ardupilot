@@ -193,11 +193,11 @@ struct PACKED log_XKF4 {
     LOG_PACKET_HEADER;
     uint64_t time_us;
     uint8_t core;
-    int16_t sqrtvarV;
-    int16_t sqrtvarP;
-    int16_t sqrtvarH;
-    int16_t sqrtvarM;
-    int16_t sqrtvarVT;
+    uint16_t sqrtvarV;
+    uint16_t sqrtvarP;
+    uint16_t sqrtvarH;
+    uint16_t sqrtvarM;
+    uint16_t sqrtvarVT;
     float   tiltErr;
     float  offsetNorth;
     float  offsetEast;
@@ -346,6 +346,7 @@ struct PACKED log_XKQ {
 // @Field: SS: Source Set (primary=0/secondary=1/tertiary=2)
 // @Field: GPS_GTA: GPS good to align
 // @Field: GPS_CHK_WAIT: Waiting for GPS checks to pass
+// @Field: MAG_FUSION: Magnetometer fusion (0=not fusing/1=fuse yaw/2=fuse mag)
 struct PACKED log_XKFS {
     LOG_PACKET_HEADER;
     uint64_t time_us;
@@ -357,6 +358,7 @@ struct PACKED log_XKFS {
     uint8_t source_set;
     uint8_t gps_good_to_align;
     uint8_t wait_for_gps_checks;
+    uint8_t mag_fusion;
 };
 
 // @LoggerMessage: XKTV
@@ -435,7 +437,7 @@ struct PACKED log_XKV {
     { LOG_XKF3_MSG, sizeof(log_XKF3), \
       "XKF3","QBcccccchhhccff","TimeUS,C,IVN,IVE,IVD,IPN,IPE,IPD,IMX,IMY,IMZ,IYAW,IVT,RErr,ErSc", "s#nnnmmmGGGd?--", "F-BBBBBBCCCBB00" , true }, \
     { LOG_XKF4_MSG, sizeof(log_XKF4), \
-      "XKF4","QBcccccfffHBIHb","TimeUS,C,SV,SP,SH,SM,SVT,errRP,OFN,OFE,FS,TS,SS,GPS,PI", "s#------mm-----", "F-------??-----" , true }, \
+      "XKF4","QBHHHHHfffHBIHb","TimeUS,C,SV,SP,SH,SM,SVT,errRP,OFN,OFE,FS,TS,SS,GPS,PI", "s#------mm-----", "F-BBBBB-??-----" , true }, \
     { LOG_XKF5_MSG, sizeof(log_XKF5), \
       "XKF5","QBBhhhcccCCfff","TimeUS,C,NI,FIX,FIY,AFI,HAGL,offset,RI,rng,Herr,eAng,eVel,ePos", "s#----m???mrnm", "F-----BBBBB000" , true }, \
     { LOG_XKFD_MSG, sizeof(log_XKFD), \
@@ -443,7 +445,7 @@ struct PACKED log_XKV {
     { LOG_XKFM_MSG, sizeof(log_XKFM),   \
       "XKFM", "QBBffff", "TimeUS,C,OGNM,GLR,ALR,GDR,ADR", "s#-----", "F------", true }, \
     { LOG_XKFS_MSG, sizeof(log_XKFS), \
-      "XKFS","QBBBBBBBB","TimeUS,C,MI,BI,GI,AI,SS,GPS_GTA,GPS_CHK_WAIT", "s#-------", "F--------" , true }, \
+      "XKFS","QBBBBBBBBB","TimeUS,C,MI,BI,GI,AI,SS,GPS_GTA,GPS_CHK_WAIT,MAG_FUSION", "s#--------", "F---------" , true }, \
     { LOG_XKQ_MSG, sizeof(log_XKQ), "XKQ", "QBffff", "TimeUS,C,Q1,Q2,Q3,Q4", "s#????", "F-????" , true }, \
     { LOG_XKT_MSG, sizeof(log_XKT),   \
       "XKT", "QBIffffffff", "TimeUS,C,Cnt,IMUMin,IMUMax,EKFMin,EKFMax,AngMin,AngMax,VMin,VMax", "s#sssssssss", "F-000000000", true }, \

@@ -120,6 +120,30 @@ uint32_t AP_ESC_Telem::get_active_esc_mask() const {
     return ret;
 }
 
+// return an active ESC for the purposes of reporting (e.g. in the OSD)
+uint8_t AP_ESC_Telem::get_max_rpm_esc() const
+{
+    uint32_t ret = 0;
+    float max_rpm = 0;
+    const uint32_t now = AP_HAL::millis();
+    const uint32_t now_us = AP_HAL::micros();
+    for (uint8_t i = 0; i < ESC_TELEM_MAX_ESCS; i++) {
+        if (_telem_data[i].last_update_ms == 0 && !was_rpm_data_ever_reported(_rpm_data[i])) {
+            // have never seen telem from this ESC
+            continue;
+        }
+        if (_telem_data[i].stale(now)
+            && !rpm_data_within_timeout(_rpm_data[i], now_us, ESC_RPM_DATA_TIMEOUT_US)) {
+            continue;
+        }
+        if (_rpm_data[i].rpm > max_rpm) {
+            max_rpm = _rpm_data[i].rpm;
+            ret = i;
+        }
+    }
+    return ret;
+}
+
 // return number of active ESCs present
 uint8_t AP_ESC_Telem::get_num_active_escs() const {
     uint32_t active = get_active_esc_mask();
@@ -238,13 +262,13 @@ bool AP_ESC_Telem::get_motor_temperature(uint8_t esc_index, int16_t& temp) const
 }
 
 // get the highest ESC temperature in centi-degrees if available, returns true if there is valid data for at least one ESC
-bool AP_ESC_Telem::get_highest_motor_temperature(int16_t& temp) const
+bool AP_ESC_Telem::get_highest_temperature(int16_t& temp) const
 {
     uint8_t valid_escs = 0;
 
     for (uint8_t i = 0; i < ESC_TELEM_MAX_ESCS; i++) {
         int16_t temp_temp;
-        if (get_motor_temperature(i, temp_temp)) {
+        if (get_temperature(i, temp_temp)) {
             temp = MAX(temp, temp_temp);
             valid_escs++;
         }
@@ -468,6 +492,21 @@ void AP_ESC_Telem::update_telem_data(const uint8_t esc_index, const AP_ESC_Telem
         telemdata.usage_s = new_data.usage_s;
     }
 
+#if AP_EXTENDED_ESC_TELEM_ENABLED
+    if (data_mask & AP_ESC_Telem_Backend::TelemetryType::INPUT_DUTY) {
+        _telem_data[esc_index].input_duty = new_data.input_duty;
+    }
+    if (data_mask & AP_ESC_Telem_Backend::TelemetryType::OUTPUT_DUTY) {
+        _telem_data[esc_index].output_duty = new_data.output_duty;
+    }
+    if (data_mask & AP_ESC_Telem_Backend::TelemetryType::FLAGS) {
+        _telem_data[esc_index].flags = new_data.flags;
+    }
+    if (data_mask & AP_ESC_Telem_Backend::TelemetryType::POWER_PERCENTAGE) {
+        _telem_data[esc_index].power_percentage = new_data.power_percentage;
+    }
+#endif //AP_EXTENDED_ESC_TELEM_ENABLED
+
 #if AP_EXTENDED_DSHOT_TELEM_V2_ENABLED
     if (data_mask & AP_ESC_Telem_Backend::TelemetryType::EDT2_STATUS) {
         telemdata.edt2_status = merge_edt2_status(telemdata.edt2_status, new_data.edt2_status);
@@ -579,6 +618,10 @@ void AP_ESC_Telem::update()
             if (telemdata.last_update_ms != _last_telem_log_ms[i]
                 || rpmdata.last_update_us != _last_rpm_log_us[i]) {
 
+                // Update last log timestamps
+                _last_telem_log_ms[i] = telemdata.last_update_ms;
+                _last_rpm_log_us[i] = rpmdata.last_update_us;
+
                 float rpm = AP::logger().quiet_nanf();
                 get_rpm(i, rpm);
                 float raw_rpm = AP::logger().quiet_nanf();
@@ -607,8 +650,40 @@ void AP_ESC_Telem::update()
                     error_rate  : rpmdata.error_rate
                 };
                 AP::logger().WriteBlock(&pkt, sizeof(pkt));
-                _last_telem_log_ms[i] = telemdata.last_update_ms;
-                _last_rpm_log_us[i] = rpmdata.last_update_us;
+
+#if AP_EXTENDED_ESC_TELEM_ENABLED
+                // Write ESC extended status messages
+                //   id: starts from 0
+                //   input duty: duty cycle input to the ESC in percent
+                //   output duty: duty cycle output to the motor in percent
+                //   status flags: manufacurer-specific status flags
+                const bool has_ext_data = telemdata.types & 
+                        (AP_ESC_Telem_Backend::TelemetryType::INPUT_DUTY |
+                         AP_ESC_Telem_Backend::TelemetryType::OUTPUT_DUTY |
+                         AP_ESC_Telem_Backend::TelemetryType::FLAGS |
+                         AP_ESC_Telem_Backend::TelemetryType::POWER_PERCENTAGE);
+                if (has_ext_data) {
+                    // @LoggerMessage: ESCX
+                    // @Description: ESC extended telemetry data
+                    // @Field: TimeUS: Time since system startup
+                    // @Field: Instance: starts from 0
+                    // @Field: inpct: input duty cycle in percent
+                    // @Field: outpct: output duty cycle in percent
+                    // @Field: flags: manufacturer-specific status flags
+                    // @Field: Pwr: Power percentage
+                    AP::logger().WriteStreaming("ESCX",
+                                                "TimeUS,Instance,inpct,outpct,flags,Pwr",
+                                                "s"     "#"      "%"   "%"    "-"   "%",
+                                                "F"     "-"      "-"   "-"    "-"   "-",
+                                                "Q"     "B"      "B"   "B"    "I"   "B",
+                                                AP_HAL::micros64(),
+                                                i,
+                                                telemdata.input_duty,
+                                                telemdata.output_duty,
+                                                telemdata.flags,
+                                                telemdata.power_percentage);
+                }
+#endif //AP_EXTENDED_ESC_TELEM_ENABLED
             }
 
 #if AP_EXTENDED_DSHOT_TELEM_V2_ENABLED

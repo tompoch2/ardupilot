@@ -150,6 +150,27 @@ const AP_Param::GroupInfo AC_AttitudeControl::var_info[] = {
     // @User: Standard
     AP_GROUPINFO("INPUT_TC", 20, AC_AttitudeControl, _input_tc, AC_ATTITUDE_CONTROL_INPUT_TC_DEFAULT),
 
+    // @Param: LAND_R_MULT
+    // @DisplayName: Landed roll gain multiplier
+    // @Description: Roll gain multiplier active when landed. A factor of 1.0 means no reduction in gain while landed. Reduce this factor to reduce ground oscitation in the roll axis. 
+    // @Range: 0.25 1.0
+    // @User: Advanced
+    AP_GROUPINFO("LAND_R_MULT", 21, AC_AttitudeControl, _land_roll_mult, 1.0),
+
+    // @Param: LAND_P_MULT
+    // @DisplayName: Landed pitch gain multiplier
+    // @Description: Pitch gain multiplier active when landed. A factor of 1.0 means no reduction in gain while landed. Reduce this factor to reduce ground oscitation in the pitch axis. 
+    // @Range: 0.25 1.0
+    // @User: Advanced
+    AP_GROUPINFO("LAND_P_MULT", 22, AC_AttitudeControl, _land_pitch_mult, 1.0),
+
+    // @Param: LAND_Y_MULT
+    // @DisplayName: Landed yaw gain multiplier
+    // @Description: Yaw gain multiplier active when landed. A factor of 1.0 means no reduction in gain while landed. Reduce this factor to reduce ground oscitation in the yaw axis. 
+    // @Range: 0.25 1.0
+    // @User: Advanced
+    AP_GROUPINFO("LAND_Y_MULT", 23, AC_AttitudeControl, _land_yaw_mult, 1.0),
+
     AP_GROUPEND
 };
 
@@ -204,6 +225,25 @@ void AC_AttitudeControl::reset_rate_controller_I_terms_smoothly()
     get_rate_yaw_pid().relax_integrator(0.0, _dt, AC_ATTITUDE_RATE_RELAX_TC);
 }
 
+// Reduce attitude control gains while landed to stop ground resonance
+void AC_AttitudeControl::landed_gain_reduction(bool landed)
+{
+    if (is_positive(_input_tc)) {
+        // use 2.0 x tc to match the response time to 86% commanded
+        const float spool_step = _dt / (2.0 * _input_tc);
+        if (landed) {
+            _landed_gain_ratio = MIN(1.0, _landed_gain_ratio + spool_step);
+        } else {
+            _landed_gain_ratio = MAX(0.0, _landed_gain_ratio - spool_step);
+        }
+    } else {
+        _landed_gain_ratio = landed ? 1.0 : 0.0;
+    }
+    Vector3f scale_mult = VECTORF_111 * (1.0 - _landed_gain_ratio) + Vector3f(_land_roll_mult, _land_pitch_mult, _land_yaw_mult) * _landed_gain_ratio;
+    set_PD_scale_mult(scale_mult);
+    set_angle_P_scale_mult(scale_mult);
+}
+
 // The attitude controller works around the concept of the desired attitude, target attitude
 // and measured attitude. The desired attitude is the attitude input into the attitude controller
 // that expresses where the higher level code would like the aircraft to move to. The target attitude is moved
@@ -227,15 +267,16 @@ void AC_AttitudeControl::reset_rate_controller_I_terms_smoothly()
 //    trust vector drops below 2*AC_ATTITUDE_THRUST_ERROR_ANGLE. At this point the heading is also corrected.
 
 // Command a Quaternion attitude with feedforward and smoothing
-// attitude_desired_quat: is updated on each time_step by the integral of the angular velocity
-void AC_AttitudeControl::input_quaternion(Quaternion& attitude_desired_quat, Vector3f ang_vel_target)
+// attitude_desired_quat: is updated on each time_step by the integral of the body frame angular velocity
+void AC_AttitudeControl::input_quaternion(Quaternion& attitude_desired_quat, Vector3f ang_vel_body)
 {
     Quaternion attitude_error_quat = _attitude_target.inverse() * attitude_desired_quat;
     Vector3f attitude_error_angle;
     attitude_error_quat.to_axis_angle(attitude_error_angle);
 
     // Limit the angular velocity
-    ang_vel_limit(ang_vel_target, radians(_ang_vel_roll_max), radians(_ang_vel_pitch_max), radians(_ang_vel_yaw_max));
+    ang_vel_limit(ang_vel_body, radians(_ang_vel_roll_max), radians(_ang_vel_pitch_max), radians(_ang_vel_yaw_max));
+    Vector3f ang_vel_target = attitude_desired_quat * ang_vel_body;
 
     if (_rate_bf_ff_enabled) {
         // When acceleration limiting and feedforward are enabled, the sqrt controller is used to compute an euler

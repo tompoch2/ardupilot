@@ -31,7 +31,7 @@
 
   All entries in this table must be ordered by priority.
 
-  This table is interleaved with the table presnet in each of the
+  This table is interleaved with the table present in each of the
   vehicles to determine the order in which tasks are run.  Convenience
   methods SCHED_TASK and SCHED_TASK_CLASS are provided to build
   entries in this structure:
@@ -81,7 +81,9 @@ const AP_Scheduler::Task Plane::scheduler_tasks[] = {
     SCHED_TASK_CLASS(AP_ServoRelayEvents, &plane.ServoRelayEvents, update_events, 50, 150,  63),
 #endif
     SCHED_TASK_CLASS(AP_BattMonitor, &plane.battery, read,   10, 300,  66),
+#if AP_RANGEFINDER_ENABLED
     SCHED_TASK(read_rangefinder,       50,    100, 78),
+#endif
 #if AP_ICENGINE_ENABLED
     SCHED_TASK_CLASS(AP_ICEngine,      &plane.g2.ice_control, update,     10, 100,  81),
 #endif
@@ -557,7 +559,7 @@ void Plane::update_alt()
 
     // low pass the sink rate to take some of the noise out
     auto_state.sink_rate = 0.8f * auto_state.sink_rate + 0.2f*sink_rate;
-#if PARACHUTE == ENABLED
+#if HAL_PARACHUTE_ENABLED
     parachute.set_sink_rate(auto_state.sink_rate);
 #endif
 
@@ -750,7 +752,9 @@ float Plane::tecs_hgt_afe(void)
     float hgt_afe;
     if (flight_stage == AP_FixedWing::FlightStage::LAND) {
         hgt_afe = height_above_target();
+#if AP_RANGEFINDER_ENABLED
         hgt_afe -= rangefinder_correction();
+#endif
     } else {
         // when in normal flight we pass the hgt_afe as relative
         // altitude to home
@@ -829,7 +833,7 @@ bool Plane::set_target_location(const Location &target_loc)
 #endif //AP_SCRIPTING_ENABLED || AP_EXTERNAL_CONTROL_ENABLED
 
 #if AP_SCRIPTING_ENABLED
-// set target location (for use by scripting)
+// get target location (for use by scripting)
 bool Plane::get_target_location(Location& target_loc)
 {
     switch (control_mode->mode_number()) {
@@ -967,7 +971,11 @@ bool Plane::flight_option_enabled(FlightOptions flight_option) const
 void Plane::precland_update(void)
 {
     // alt will be unused if we pass false through as the second parameter:
+#if AP_RANGEFINDER_ENABLED
     return g2.precland.update(rangefinder_state.height_estimate*100, rangefinder_state.in_range);
+#else
+    return g2.precland.update(0, false);
+#endif
 }
 #endif
 

@@ -76,7 +76,8 @@ void RC_Channel_Copter::init_aux_function(const AUX_FUNC ch_option, const AuxSwi
     // the following functions do not need to be initialised:
     case AUX_FUNC::ALTHOLD:
     case AUX_FUNC::AUTO:
-    case AUX_FUNC::AUTOTUNE:
+    case AUX_FUNC::AUTOTUNE_MODE:
+    case AUX_FUNC::AUTOTUNE_TEST_GAINS:
     case AUX_FUNC::BRAKE:
     case AUX_FUNC::CIRCLE:
     case AUX_FUNC::DRIFT:
@@ -128,6 +129,7 @@ void RC_Channel_Copter::init_aux_function(const AUX_FUNC ch_option, const AuxSwi
     case AUX_FUNC::FORCEFLYING:
     case AUX_FUNC::CUSTOM_CONTROLLER:
     case AUX_FUNC::WEATHER_VANE_ENABLE:
+    case AUX_FUNC::TRANSMITTER_TUNING:
         run_aux_function(ch_option, ch_flag, AuxFuncTriggerSource::INIT);
         break;
     default:
@@ -258,7 +260,7 @@ bool RC_Channel_Copter::do_aux_function(const AUX_FUNC ch_option, const AuxSwitc
             break;
 #endif
 
-#if RANGEFINDER_ENABLED == ENABLED
+#if AP_RANGEFINDER_ENABLED
         case AUX_FUNC::RANGEFINDER:
             // enable or disable the rangefinder
             if ((ch_flag == AuxSwitchPos::HIGH) &&
@@ -290,8 +292,11 @@ bool RC_Channel_Copter::do_aux_function(const AUX_FUNC ch_option, const AuxSwitc
 #endif
 
 #if AUTOTUNE_ENABLED == ENABLED
-        case AUX_FUNC::AUTOTUNE:
+        case AUX_FUNC::AUTOTUNE_MODE:
             do_aux_function_change_mode(Mode::Number::AUTOTUNE, ch_flag);
+            break;
+        case AUX_FUNC::AUTOTUNE_TEST_GAINS:
+            copter.mode_autotune.autotune.do_aux_function(ch_flag);
             break;
 #endif
 
@@ -311,7 +316,7 @@ bool RC_Channel_Copter::do_aux_function(const AUX_FUNC ch_option, const AuxSwitc
             do_aux_function_change_mode(Mode::Number::FOLLOW, ch_flag);
             break;
 
-#if PARACHUTE == ENABLED
+#if HAL_PARACHUTE_ENABLED
         case AUX_FUNC::PARACHUTE_ENABLE:
             // Parachute enable/disable
             copter.parachute.enabled(ch_flag == AuxSwitchPos::HIGH);
@@ -544,6 +549,7 @@ bool RC_Channel_Copter::do_aux_function(const AUX_FUNC ch_option, const AuxSwitc
             break;
         }
 
+#if AP_RANGEFINDER_ENABLED
         case AUX_FUNC::SURFACE_TRACKING:
             switch (ch_flag) {
             case AuxSwitchPos::LOW:
@@ -557,6 +563,7 @@ bool RC_Channel_Copter::do_aux_function(const AUX_FUNC ch_option, const AuxSwitc
                 break;
             }
             break;
+#endif
 
         case AUX_FUNC::FLIGHTMODE_PAUSE:
             switch (ch_flag) {
@@ -646,6 +653,9 @@ bool RC_Channel_Copter::do_aux_function(const AUX_FUNC ch_option, const AuxSwitc
         break;
     }
 #endif
+    case AUX_FUNC::TRANSMITTER_TUNING:
+        // do nothing, used in tuning.cpp for transmitter based tuning
+        break;
 
     default:
         return RC_Channel::do_aux_function(ch_option, ch_flag);

@@ -39,7 +39,7 @@
 #include <AP_AccelCal/AP_AccelCal.h>                // interface and maths for accelerometer calibration
 #include <AP_AHRS/AP_AHRS.h>         // ArduPilot Mega DCM Library
 #include <SRV_Channel/SRV_Channel.h>
-#include <AP_RangeFinder/AP_RangeFinder.h>     // Range finder library
+#include <AP_RangeFinder/AP_RangeFinder_config.h>     // Range finder library
 #include <Filter/Filter.h>                     // Filter library
 #include <AP_Camera/AP_Camera.h>          // Photo or video camera
 #include <AP_Terrain/AP_Terrain.h>
@@ -206,7 +206,23 @@ private:
     AP_Int8 *flight_modes = &g.flight_mode1;
     const uint8_t num_flight_modes = 6;
 
+#if AP_RANGEFINDER_ENABLED
     AP_FixedWing::Rangefinder_State rangefinder_state;
+#endif
+
+#if AP_MAVLINK_MAV_CMD_SET_HAGL_ENABLED
+    struct {
+        // allow for external height above ground estimate
+        float hagl;
+        uint32_t last_update_ms;
+        uint32_t timeout_ms;
+    } external_hagl;
+    bool get_external_HAGL(float &height_agl);
+    void handle_external_hagl(const mavlink_command_int_t &packet);
+#endif // AP_MAVLINK_MAV_CMD_SET_HAGL_ENABLED
+
+    float get_landing_height(bool &using_rangefinder);
+
 
 #if AP_RPM_ENABLED
     AP_RPM rpm_sensor;
@@ -350,19 +366,20 @@ private:
         uint32_t AFS_last_valid_rc_ms;
     } failsafe;
 
-    enum Landing_ApproachStage {
-        RTL,
-        LOITER_TO_ALT,
-        ENSURE_RADIUS,
-        WAIT_FOR_BREAKOUT,
-        APPROACH_LINE,
-        VTOL_LANDING,
-    };
-
 #if HAL_QUADPLANE_ENABLED
     // Landing
-    struct {
-        enum Landing_ApproachStage approach_stage;
+    class VTOLApproach {
+    public:
+        enum class Stage {
+            RTL,
+            LOITER_TO_ALT,
+            ENSURE_RADIUS,
+            WAIT_FOR_BREAKOUT,
+            APPROACH_LINE,
+            VTOL_LANDING,
+        };
+
+        Stage approach_stage;
         float approach_direction_deg;
     } vtol_approach_s;
 #endif
@@ -537,7 +554,7 @@ private:
         float forced_throttle;
         uint32_t last_forced_throttle_ms;
 
-#if OFFBOARD_GUIDED == ENABLED
+#if AP_PLANE_OFFBOARD_GUIDED_SLEW_ENABLED
         // airspeed adjustments
         float target_airspeed_cm = -1;  // don't default to zero here, as zero is a valid speed.
         float target_airspeed_accel;
@@ -556,7 +573,7 @@ private:
         uint32_t target_heading_time_ms;
         guided_heading_type_t target_heading_type;
         bool target_heading_limit;
-#endif // OFFBOARD_GUIDED == ENABLED
+#endif // AP_PLANE_OFFBOARD_GUIDED_SLEW_ENABLED
     } guided_state;
 
 #if AP_LANDINGGEAR_ENABLED
@@ -633,7 +650,7 @@ private:
             FUNCTOR_BIND_MEMBER(&Plane::exit_mission_callback, void)};
 
 
-#if PARACHUTE == ENABLED
+#if HAL_PARACHUTE_ENABLED
     AP_Parachute parachute;
 #endif
 
@@ -865,9 +882,11 @@ private:
     float mission_alt_offset(void);
     float height_above_target(void);
     float lookahead_adjustment(void);
+#if AP_RANGEFINDER_ENABLED
     float rangefinder_correction(void);
     void rangefinder_height_update(void);
     void rangefinder_terrain_correction(float &height);
+#endif
     void stabilize();
     void calc_throttle();
     void calc_nav_roll();
@@ -1074,8 +1093,10 @@ private:
     bool rc_throttle_value_ok(void) const;
     bool rc_failsafe_active(void) const;
 
+#if AP_RANGEFINDER_ENABLED
     // sensors.cpp
     void read_rangefinder(void);
+#endif
 
     // system.cpp
     void init_ardupilot() override;
@@ -1094,6 +1115,7 @@ private:
     bool auto_takeoff_check(void);
     void takeoff_calc_roll(void);
     void takeoff_calc_pitch(void);
+    void takeoff_calc_throttle(const bool use_max_throttle=false);
     int8_t takeoff_tail_hold(void);
     int16_t get_takeoff_pitch_min_cd(void);
     void landing_gear_update(void);
@@ -1134,7 +1156,7 @@ private:
 
     // parachute.cpp
     void parachute_check();
-#if PARACHUTE == ENABLED
+#if HAL_PARACHUTE_ENABLED
     void do_parachute(const AP_Mission::Mission_Command& cmd);
     void parachute_release();
     bool parachute_manual_release();

@@ -119,7 +119,7 @@ public:
         ACRO_TRAINER =        14, // low = disabled, middle = leveled, high = leveled and limited
         SPRAYER =             15, // enable/disable the crop sprayer
         AUTO =                16, // change to auto flight mode
-        AUTOTUNE =            17, // auto tune
+        AUTOTUNE_MODE =       17, // auto tune
         LAND =                18, // change to LAND flight mode
         GRIPPER =             19, // Operate cargo grippers low=off, middle=neutral, high=on
         PARACHUTE_ENABLE  =   21, // Parachute enable/disable
@@ -217,6 +217,7 @@ public:
         KILL_IMU3 =          110, // disable third IMU (for IMU failure testing)
         LOWEHEISER_STARTER = 111,  // allows for manually running starter
         AHRS_TYPE =          112, // change AHRS_EKF_TYPE
+        RETRACT_MOUNT2 =     113, // Retract Mount2
 
         // if you add something here, make sure to update the documentation of the parameter in RC_Channel.cpp!
         // also, if you add an option >255, you will need to fix duplicate_options_exist
@@ -251,6 +252,7 @@ public:
         VFWD_THR_OVERRIDE =  176, // force enabled VTOL forward throttle method
         MOUNT_LRF_ENABLE =   177,  // mount LRF enable/disable
         FLIGHTMODE_PAUSE =   178,  // e.g. pause movement towards waypoint
+        AUTOTUNE_TEST_GAINS = 180, // auto tune tuning switch to test or revert gains
 
 
         // inputs from 200 will eventually used to replace RCMAP
@@ -270,6 +272,7 @@ public:
         MOUNT2_PITCH =       216, // mount3 pitch input
         MOUNT2_YAW =         217, // mount4 yaw input
         LOWEHEISER_THROTTLE= 218,  // allows for throttle on slider
+        TRANSMITTER_TUNING = 219, // use a transmitter knob or slider for in-flight tuning
 
         // inputs 248-249 are reserved for the Skybrush fork at
         // https://github.com/skybrush-io/ardupilot
@@ -362,6 +365,7 @@ protected:
     void do_aux_function_sprayer(const AuxSwitchPos ch_flag);
     void do_aux_function_generator(const AuxSwitchPos ch_flag);
     void do_aux_function_fft_notch_tune(const AuxSwitchPos ch_flag);
+    void do_aux_function_retract_mount(const AuxSwitchPos ch_flag, const uint8_t instance);
 
     typedef int8_t modeswitch_pos_t;
     virtual void mode_switch_changed(modeswitch_pos_t new_pos) {

@@ -15,6 +15,7 @@
 #include "AP_Mount_Scripting.h"
 #include "AP_Mount_Xacti.h"
 #include "AP_Mount_Viewpro.h"
+#include "AP_Mount_Topotek.h"
 #include <stdio.h>
 #include <AP_Math/location.h>
 #include <SRV_Channel/SRV_Channel.h>
@@ -45,7 +46,7 @@ AP_Mount::AP_Mount()
     }
     _singleton = this;
 
-	AP_Param::setup_object_defaults(this, var_info);
+    AP_Param::setup_object_defaults(this, var_info);
 }
 
 // init - detect and initialise all mounts
@@ -156,6 +157,15 @@ void AP_Mount::init()
             serial_instance++;
             break;
 #endif // HAL_MOUNT_VIEWPRO_ENABLED
+
+#if HAL_MOUNT_TOPOTEK_ENABLED
+        // check for Topotek gimbal
+        case Type::Topotek:
+            _backends[instance] = NEW_NOTHROW AP_Mount_Topotek(*this, _params[instance], instance, serial_instance);
+            _num_instances++;
+            serial_instance++;
+            break;
+#endif // HAL_MOUNT_TOPOTEK_ENABLED
         }
 
         // init new instance
@@ -174,6 +184,8 @@ void AP_Mount::init()
             set_mode_to_default(instance);
         }
     }
+
+    (void)serial_instance;
 }
 
 // update - give mount opportunity to update servos.  should be called at 10hz or higher

@@ -120,12 +120,27 @@ public:
 
     // get the roll angular velocity limit in radians/s
     float get_ang_vel_roll_max_rads() const { return radians(_ang_vel_roll_max); }
+    // get the roll angular velocity limit in degrees/s
+    float get_ang_vel_roll_max_degs() const { return _ang_vel_roll_max; }
+
+    // set the roll angular velocity limit in degrees/s
+    void set_ang_vel_roll_max_degs(float vel_roll_max) { _ang_vel_roll_max.set(vel_roll_max); }
 
     // get the pitch angular velocity limit in radians/s
     float get_ang_vel_pitch_max_rads() const { return radians(_ang_vel_pitch_max); }
+    // get the pitch angular velocity limit in degrees/s
+    float get_ang_vel_pitch_max_degs() const { return _ang_vel_pitch_max; }
+
+    // set the pitch angular velocity limit in degrees/s
+    void set_ang_vel_pitch_max_degs(float vel_pitch_max) { _ang_vel_pitch_max.set(vel_pitch_max); }
 
     // get the yaw angular velocity limit in radians/s
     float get_ang_vel_yaw_max_rads() const { return radians(_ang_vel_yaw_max); }
+    // get the yaw angular velocity limit in degrees/s
+    float get_ang_vel_yaw_max_degs() const { return _ang_vel_yaw_max; }
+
+    // set the yaw angular velocity limit in degrees/s
+    void set_ang_vel_yaw_max_degs(float vel_yaw_max) { _ang_vel_yaw_max.set(vel_yaw_max); }
 
     // get the slew yaw rate limit in deg/s
     float get_slew_yaw_max_degs() const;
@@ -148,6 +163,9 @@ public:
     // reset rate controller I terms smoothly to zero in 0.5 seconds
     void reset_rate_controller_I_terms_smoothly();
 
+    // Reduce attitude control gains while landed to stop ground resonance
+    void landed_gain_reduction(bool landed);
+
     // Sets attitude target to vehicle attitude and sets all rates to zero
     // If reset_rate is false rates are not reset to allow the rate controllers to run
     void reset_target_and_rate(bool reset_rate = true);
@@ -160,8 +178,8 @@ public:
     void inertial_frame_reset();
 
     // Command a Quaternion attitude with feedforward and smoothing
-    // attitude_desired_quat: is updated on each time_step (_dt) by the integral of the angular velocity
-    virtual void input_quaternion(Quaternion& attitude_desired_quat, Vector3f ang_vel_target);
+    // attitude_desired_quat: is updated on each time_step (_dt) by the integral of the body frame angular velocity
+    virtual void input_quaternion(Quaternion& attitude_desired_quat, Vector3f ang_vel_body);
 
     // Command an euler roll and pitch angle and an euler yaw rate with angular velocity feedforward and smoothing
     virtual void input_euler_angle_roll_pitch_euler_rate_yaw(float euler_roll_angle_cd, float euler_pitch_angle_cd, float euler_yaw_rate_cds);
@@ -379,6 +397,9 @@ public:
     // enable inverted flight on backends that support it
     virtual void set_inverted_flight(bool inverted) {}
 
+    // enable accessor for inverted flight flag on backends that support it
+    virtual bool get_inverted_flight() { return false;}
+
     // get the slew rate value for roll, pitch and yaw, for oscillation detection in lua scripts
     void get_rpy_srate(float &roll_srate, float &pitch_srate, float &yaw_srate);
     
@@ -461,6 +482,11 @@ protected:
     // rate controller input smoothing time constant
     AP_Float            _input_tc;
 
+    // Controller gain multiplyer to be used when landed
+    AP_Float            _land_roll_mult;
+    AP_Float            _land_pitch_mult;
+    AP_Float            _land_yaw_mult;
+
     // Intersampling period in seconds
     float               _dt;
 
@@ -542,6 +568,9 @@ protected:
 
     // PD scale used for last loop, used for logging
     Vector3f            _pd_scale_used;
+
+    // ratio of normal gain to landed gain
+    float               _landed_gain_ratio;
 
     // References to external libraries
     const AP_AHRS_View&  _ahrs;

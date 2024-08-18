@@ -27,9 +27,11 @@ void Copter::init_ardupilot()
     // initialise battery monitor
     battery.init();
 
+#if AP_RSSI_ENABLED
     // Init RSSI
     rssi.init();
-    
+#endif
+
     barometer.init();
 
     // setup telem slots with serial ports
@@ -52,9 +54,11 @@ void Copter::init_ardupilot()
 
     init_rc_in();               // sets up rc channels from radio
 
+#if AP_RANGEFINDER_ENABLED
     // initialise surface to be tracked in SurfaceTracking
     // must be before rc init to not override initial switch position
     surface_tracking.init((SurfaceTracking::Surface)copter.g2.surftrak_mode.get());
+#endif
 
     // allocate the motors class
     allocate_motors();
@@ -133,7 +137,7 @@ void Copter::init_ardupilot()
     barometer.set_log_baro_bit(MASK_LOG_IMU);
     barometer.calibrate();
 
-#if RANGEFINDER_ENABLED == ENABLED
+#if AP_RANGEFINDER_ENABLED
     // initialise rangefinder
     init_rangefinder();
 #endif

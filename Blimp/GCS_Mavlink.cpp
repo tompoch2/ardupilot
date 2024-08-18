@@ -40,6 +40,9 @@ MAV_STATE GCS_MAVLINK_Blimp::vehicle_system_status() const
     if (blimp.ap.land_complete) {
         return MAV_STATE_STANDBY;
     }
+    if (!blimp.ap.initialised) {
+    	return MAV_STATE_BOOT;
+    }
 
     return MAV_STATE_ACTIVE;
 }
@@ -340,7 +343,9 @@ static const ap_message STREAM_POSITION_msgs[] = {
 static const ap_message STREAM_RC_CHANNELS_msgs[] = {
     MSG_SERVO_OUTPUT_RAW,
     MSG_RC_CHANNELS,
+#if AP_MAVLINK_MSG_RC_CHANNELS_RAW_ENABLED
     MSG_RC_CHANNELS_RAW, // only sent on a mavlink1 connection
+#endif
 };
 static const ap_message STREAM_EXTRA1_msgs[] = {
     MSG_ATTITUDE,

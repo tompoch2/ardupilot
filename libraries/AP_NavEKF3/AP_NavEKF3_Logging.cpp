@@ -102,7 +102,8 @@ void NavEKF3_core::Log_Write_XKFS(uint64_t time_us) const
         airspeed_index : getActiveAirspeed(),
         source_set     : frontend->sources.getPosVelYawSourceSet(),
         gps_good_to_align : gpsGoodToAlign,
-        wait_for_gps_checks : waitingForGpsChecks
+        wait_for_gps_checks : waitingForGpsChecks,
+        mag_fusion: (uint8_t) magFusionSel
     };
     AP::logger().WriteBlock(&pkt, sizeof(pkt));
 }
@@ -164,11 +165,11 @@ void NavEKF3_core::Log_Write_XKF4(uint64_t time_us) const
         LOG_PACKET_HEADER_INIT(LOG_XKF4_MSG),
         time_us : time_us,
         core    : DAL_CORE(core_index),
-        sqrtvarV : (int16_t)(100*velVar),
-        sqrtvarP : (int16_t)(100*posVar),
-        sqrtvarH : (int16_t)(100*hgtVar),
-        sqrtvarM : (int16_t)(100*tempVar),
-        sqrtvarVT : (int16_t)(100*tasVar),
+        sqrtvarV : (uint16_t)(100*velVar),
+        sqrtvarP : (uint16_t)(100*posVar),
+        sqrtvarH : (uint16_t)(100*hgtVar),
+        sqrtvarM : (uint16_t)(100*tempVar),
+        sqrtvarVT : (uint16_t)(100*tasVar),
         tiltErr : sqrtF(MAX(tiltErrorVariance,0.0f)),  // estimated 1-sigma tilt error in radians
         offsetNorth : offset.x,
         offsetEast : offset.y,

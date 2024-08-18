@@ -121,7 +121,7 @@
 #if AP_TERRAIN_AVAILABLE
  # include <AP_Terrain/AP_Terrain.h>
 #endif
-#if RANGEFINDER_ENABLED == ENABLED
+#if AP_RANGEFINDER_ENABLED
  # include <AP_RangeFinder/AP_RangeFinder.h>
 #endif
 
@@ -258,6 +258,7 @@ private:
     // helper function to get inertially interpolated rangefinder height.
     bool get_rangefinder_height_interpolated_cm(int32_t& ret) const;
 
+#if AP_RANGEFINDER_ENABLED
     class SurfaceTracking {
     public:
 
@@ -292,6 +293,7 @@ private:
         bool valid_for_logging;     // true if we have a desired target altitude
         bool reset_target;          // true if target should be reset because of change in surface being tracked
     } surface_tracking;
+#endif
 
 #if AP_RPM_ENABLED
     AP_RPM rpm_sensor;
@@ -519,7 +521,7 @@ private:
 #endif
 
     // Parachute release
-#if PARACHUTE == ENABLED
+#if HAL_PARACHUTE_ENABLED
     AP_Parachute parachute;
 #endif
 
@@ -626,6 +628,7 @@ private:
         DISABLE_THRUST_LOSS_CHECK     = (1<<0),   // 1
         DISABLE_YAW_IMBALANCE_WARNING = (1<<1),   // 2
         RELEASE_GRIPPER_ON_THRUST_LOSS = (1<<2),  // 4
+        REQUIRE_POSITION_FOR_ARMING =   (1<<3),   // 8
     };
     // returns true if option is enabled for this vehicle
     bool option_is_enabled(FlightOption option) const {
@@ -670,6 +673,8 @@ private:
 #if AP_SCRIPTING_ENABLED
 #if MODE_GUIDED_ENABLED == ENABLED
     bool start_takeoff(float alt) override;
+    bool get_target_location(Location& target_loc) override;
+    bool update_target_location(const Location &old_loc, const Location &new_loc) override;
     bool set_target_pos_NED(const Vector3f& target_pos, bool use_yaw, float yaw_deg, bool use_yaw_rate, float yaw_rate_degs, bool yaw_relative, bool terrain_alt) override;
     bool set_target_posvel_NED(const Vector3f& target_pos, const Vector3f& target_vel) override;
     bool set_target_posvelaccel_NED(const Vector3f& target_pos, const Vector3f& target_vel, const Vector3f& target_accel, bool use_yaw, float yaw_deg, bool use_yaw_rate, float yaw_rate_degs, bool yaw_relative) override;
@@ -825,6 +830,29 @@ private:
     void set_land_complete(bool b);
     void set_land_complete_maybe(bool b);
     void update_throttle_mix();
+    bool get_force_flying() const;
+#if HAL_LOGGING_ENABLED
+    enum class LandDetectorLoggingFlag : uint16_t {
+        LANDED               = 1U <<  0,
+        LANDED_MAYBE         = 1U <<  1,
+        LANDING              = 1U <<  2,
+        STANDBY_ACTIVE       = 1U <<  3,
+        WOW                  = 1U <<  4,
+        RANGEFINDER_BELOW_2M = 1U <<  5,
+        DESCENT_RATE_LOW     = 1U <<  6,
+        ACCEL_STATIONARY     = 1U <<  7,
+        LARGE_ANGLE_ERROR    = 1U <<  8,
+        LARGE_ANGLE_REQUEST  = 1U <<  8,
+        MOTOR_AT_LOWER_LIMIT = 1U <<  9,
+        THROTTLE_MIX_AT_MIN  = 1U << 10,
+    };
+    struct {
+        uint32_t last_logged_ms;
+        uint32_t last_logged_count;
+        uint16_t last_logged_flags;
+    } land_detector;
+    void Log_LDET(uint16_t logging_flags, uint32_t land_detector_count);
+#endif
 
 #if AP_LANDINGGEAR_ENABLED
     // landing_gear.cpp
@@ -854,9 +882,6 @@ private:
     void Log_Write_Data(LogDataID id, float value);
     void Log_Write_Parameter_Tuning(uint8_t param, float tuning_val, float tune_min, float tune_max);
     void Log_Video_Stabilisation();
-#if FRAME_CONFIG == HELI_FRAME
-    void Log_Write_Heli(void);
-#endif
     void Log_Write_Guided_Position_Target(ModeGuided::SubMode submode, const Vector3f& pos_target, bool terrain_alt, const Vector3f& vel_target, const Vector3f& accel_target);
     void Log_Write_Guided_Attitude_Target(ModeGuided::SubMode target_type, float roll, float pitch, float yaw, const Vector3f &ang_vel, float thrust, float climb_rate);
     void Log_Write_SysID_Setup(uint8_t systemID_axis, float waveform_magnitude, float frequency_start, float frequency_stop, float time_fade_in, float time_const_freq, float time_record, float time_fade_out);
