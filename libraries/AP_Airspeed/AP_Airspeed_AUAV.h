@@ -45,20 +45,28 @@ public:
     bool get_temperature(float &temperature) override;
 
 private:
-    void _measure();
-    void _collect();
+    void _measure(uint8_t sensor_number);
+    void _collect(uint8_t sensor_number);
     void _timer();
-    bool _read_coefficients();
+    bool _read_coefficients(uint8_t sensor_number);
     uint32_t _read_register(uint8_t cmd);
+    void _set_multiplexer(uint8_t channel);
+    float get_differential_pressure_i(uint8_t index);
     
-    uint32_t _last_sample_time_ms;
-    uint32_t _measurement_started_ms;
+    uint32_t _last_sample_time_ms[NUM_PARALLEL_AIRSPEED_SENSORS];
+    uint32_t _measurement_started_ms[NUM_PARALLEL_AIRSPEED_SENSORS];
     AP_HAL::OwnPtr<AP_HAL::I2CDevice> _dev;
-    float range_inH2O;
+    AP_HAL::OwnPtr<AP_HAL::I2CDevice> _dev_multiplexer;
 
-    float DLIN_A , DLIN_B, DLIN_C, DLIN_D, D_Es, D_TC50H, D_TC50L; // Diff coeffs
-    float pressure;
-    float temp;
+    float DLIN_A[NUM_PARALLEL_AIRSPEED_SENSORS];
+    float DLIN_B[NUM_PARALLEL_AIRSPEED_SENSORS];
+    float DLIN_C[NUM_PARALLEL_AIRSPEED_SENSORS];
+    float DLIN_D[NUM_PARALLEL_AIRSPEED_SENSORS];
+    float D_Es[NUM_PARALLEL_AIRSPEED_SENSORS];
+    float D_TC50H[NUM_PARALLEL_AIRSPEED_SENSORS];
+    float D_TC50L[NUM_PARALLEL_AIRSPEED_SENSORS]; // Diff coeffs
+    float pressure_digital[NUM_PARALLEL_AIRSPEED_SENSORS];
+    float temp[NUM_PARALLEL_AIRSPEED_SENSORS];
     bool probe(uint8_t bus, uint8_t address);
 };
 
