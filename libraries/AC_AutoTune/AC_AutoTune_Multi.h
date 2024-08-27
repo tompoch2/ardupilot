@@ -127,7 +127,7 @@ protected:
         // this should never happen
         INTERNAL_ERROR(AP_InternalError::error_t::flow_of_control);
     }
-    void Log_Write_AutoTune(uint8_t axis, uint8_t tune_step, float meas_target, float meas_min, float meas_max, float new_gain_rp, float new_gain_rd, float new_gain_sp, float new_ddt);
+    void Log_Write_AutoTune(AxisType axis, uint8_t tune_step, float meas_target, float meas_min, float meas_max, float new_gain_rp, float new_gain_rd, float new_gain_sp, float new_ddt);
     void Log_Write_AutoTuneDetails(float angle_cd, float rate_cds);
 #endif
 
@@ -193,6 +193,7 @@ private:
     float    test_rate_max;     // the maximum angular rate achieved during TESTING_RATE
     float    test_angle_min;    // the minimum angle achieved during TESTING_ANGLE
     float    test_angle_max;    // the maximum angle achieved during TESTING_ANGLE
+    float    accel_measure_rate_max; // the maximum rate used to measure average acceleration during twitch
 };
 
 #endif  // AC_AUTOTUNE_ENABLED

@@ -1551,12 +1551,12 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         self.delay_sim_time(2) # Allow breach to propagate
         self.assert_fence_enabled()
 
-        self.try_arm(False, "vehicle outside Min Alt fence")
+        self.try_arm(False, "Vehicle breaching Min Alt fence")
         self.do_fence_disable()
         self.set_parameter("FENCE_ALT_MIN", default_fence_alt_min)
 
         # Test arming outside inclusion zone
-        self.progress("Test arming while vehicle outside of inclusion zone")
+        self.progress("Test arming while Vehicle breaching of inclusion zone")
         self.set_parameter("FENCE_TYPE", 4) # Enables polygon fence types
         self.upload_fences_from_locations([(
             mavutil.mavlink.MAV_CMD_NAV_FENCE_POLYGON_VERTEX_INCLUSION, [
@@ -1570,7 +1570,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         self.do_fence_enable()
         self.assert_fence_enabled()
         self.delay_sim_time(2) # Allow breach to propagate
-        self.try_arm(False, "vehicle outside Polygon fence")
+        self.try_arm(False, "Vehicle breaching Polygon fence")
         self.do_fence_disable()
         self.clear_fence()
 
@@ -1590,7 +1590,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         self.do_fence_enable()
         self.assert_fence_enabled()
         self.delay_sim_time(2) # Allow breach to propagate
-        self.try_arm(False, "vehicle outside Polygon fence")
+        self.try_arm(False, "Vehicle breaching Polygon fence")
         self.do_fence_disable()
 
     def test_fence_breach_circle_at(self, loc, disable_on_breach=False):
@@ -4714,6 +4714,46 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
 
         self.fly_home_land_and_disarm()
 
+    def TakeoffTakeoff4(self):
+        '''Test the behaviour of a takeoff in TAKEOFF mode, pt4.
+
+        This is the same as case #3, but with almost stock parameters and without a catapult.
+
+        Conditions:
+        - ARSPD_USE=0
+        '''
+
+        self.customise_SITL_commandline(
+            [],
+            model='plane-catapult',
+            defaults_filepath=self.model_defaults_filepath("plane")
+        )
+        self.set_parameters({
+            "ARSPD_USE": 0.0,
+        })
+        self.change_mode("TAKEOFF")
+
+        self.wait_ready_to_arm()
+        self.arm_vehicle()
+
+        # Check whether we're at max throttle below TKOFF_LVL_ALT.
+        test_alt = self.get_parameter("TKOFF_LVL_ALT")-10
+        self.wait_altitude(test_alt, test_alt+2, relative=True)
+        self.assert_servo_channel_value(3, 1000+10*(self.get_parameter("THR_MAX")), operator.le)
+        self.assert_servo_channel_value(3, 1000+10*(self.get_parameter("THR_MAX"))-10, operator.ge)
+
+        # Check whether we're still at max throttle past TKOFF_LVL_ALT.
+        test_alt = self.get_parameter("TKOFF_LVL_ALT")+10
+        self.wait_altitude(test_alt, test_alt+2, relative=True)
+        self.assert_servo_channel_value(3, 1000+10*(self.get_parameter("THR_MAX")), operator.le)
+        self.assert_servo_channel_value(3, 1000+10*(self.get_parameter("THR_MAX"))-10, operator.ge)
+
+        # Wait for the takeoff to complete.
+        target_alt = self.get_parameter("TKOFF_ALT")
+        self.wait_altitude(target_alt-5, target_alt, relative=True)
+
+        self.fly_home_land_and_disarm()
+
     def DCMFallback(self):
         '''Really annoy the EKF and force fallback'''
         self.reboot_sitl()
@@ -5077,8 +5117,8 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             wipe=True)
 
         self.context_push()
-        self.install_applet_script(applet_script)
-        self.install_applet_script(airshow, install_name=trick72)
+        self.install_applet_script_context(applet_script)
+        self.install_applet_script_context(airshow, install_name=trick72)
         self.context_collect('STATUSTEXT')
         self.reboot_sitl()
 
@@ -5124,8 +5164,6 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         self.progress("Finished trick, max error=%.1fm" % highest_error)
         self.disarm_vehicle(force=True)
 
-        self.remove_installed_script(applet_script)
-        self.remove_installed_script(trick72)
         messages = self.context_collection('STATUSTEXT')
         self.context_pop()
         self.reboot_sitl()
@@ -5977,6 +6015,43 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             other_prearm_failures_fatal=False,
         )
 
+    def SetHomeAltChange(self):
+        '''check modes retain altitude when home alt changed'''
+        for mode in 'FBWB', 'CRUISE', 'LOITER':
+            self.wait_ready_to_arm()
+            home = self.home_position_as_mav_location()
+            self.takeoff(20)
+            higher_home = home
+            higher_home.alt += 40
+            self.set_home(higher_home)
+            self.wait_altitude(15, 25, relative=True, minimum_duration=10)
+            self.disarm_vehicle(force=True)
+            self.reboot_sitl()
+
+    def ForceArm(self):
+        '''check force-arming functionality'''
+        self.set_parameter("SIM_GPS_DISABLE", 1)
+        # 21196 is the mavlink standard, 2989 is legacy
+        for magic_value in 21196, 2989:
+            self.wait_sensor_state(mavutil.mavlink.MAV_SYS_STATUS_PREARM_CHECK,
+                                   present=True,
+                                   enabled=True,
+                                   healthy=False,
+                                   )
+            self.run_cmd(
+                mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM,
+                p1=1,  # ARM
+                p2=0,
+                want_result=mavutil.mavlink.MAV_RESULT_FAILED,
+            )
+            self.run_cmd(
+                mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM,
+                p1=1,  # ARM
+                p2=magic_value,
+                want_result=mavutil.mavlink.MAV_RESULT_ACCEPTED,
+            )
+            self.disarm_vehicle()
+
     def tests(self):
         '''return list of all tests'''
         ret = super(AutoTestPlane, self).tests()
@@ -6062,6 +6137,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             self.TakeoffTakeoff1,
             self.TakeoffTakeoff2,
             self.TakeoffTakeoff3,
+            self.TakeoffTakeoff4,
             self.ForcedDCM,
             self.DCMFallback,
             self.MAVFTP,
@@ -6105,6 +6181,8 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             self.GuidedAttitudeNoGPS,
             self.ScriptStats,
             self.GPSPreArms,
+            self.SetHomeAltChange,
+            self.ForceArm,
         ])
         return ret
 
@@ -6113,4 +6191,5 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             "LandingDrift": "Flapping test. See https://github.com/ArduPilot/ardupilot/issues/20054",
             "InteractTest": "requires user interaction",
             "ClimbThrottleSaturation": "requires https://github.com/ArduPilot/ardupilot/pull/27106 to pass",
+            "SetHomeAltChange": "https://github.com/ArduPilot/ardupilot/issues/5672",
         }

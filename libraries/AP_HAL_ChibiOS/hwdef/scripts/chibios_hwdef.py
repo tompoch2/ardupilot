@@ -18,6 +18,12 @@ import shutil
 import filecmp
 
 
+class ChibiOSHWDefIncludeNotFoundException(Exception):
+    def __init__(self, hwdef, includer):
+        self.hwdef = hwdef
+        self.includer = includer
+
+
 class ChibiOSHWDef(object):
 
     # output variables for each pin
@@ -32,6 +38,7 @@ class ChibiOSHWDef(object):
         self.signed_fw = signed_fw
         self.default_params_filepath = default_params_filepath
         self.quiet = quiet
+        self.have_defaults_file = False
 
         # if true then parameters will be appended in special apj-tool
         # section at end of binary:
@@ -2567,7 +2574,7 @@ Please run: Tools/scripts/build_bootloaders.py %s
         f = open(hwdat, 'w')
         f.write('\n'.join(self.all_lines))
         f.close()
-        if not self.is_periph_fw():
+        if not self.is_periph_fw() and not os.getenv("NO_ROMFS_HWDEF", False):
             self.romfs["hwdef.dat"] = hwdat
 
     def write_defaulting_define(self, f, name, value):
@@ -2637,6 +2644,13 @@ Please run: Tools/scripts/build_bootloaders.py %s
         self.write_AIRSPEED_config(f)
         self.write_board_validate_macro(f)
         self.write_check_firmware(f)
+
+        if self.have_defaults_file:
+            f.write('''
+#ifndef AP_FILESYSTEM_ROMFS_ENABLED
+#define AP_FILESYSTEM_ROMFS_ENABLED 1
+#endif
+''')
 
         self.write_peripheral_enable(f)
 
@@ -3192,8 +3206,13 @@ Please run: Tools/scripts/build_bootloaders.py %s
 
         self.add_firmware_defaults_from_file(f, "defaults_iofirmware.h", "IOMCU Firmware")
 
-    def is_periph_fw_unprocessed_file(self, hwdef):
+    def is_periph_fw_unprocessed_file(self, hwdef, includer=None):
         '''helper/recursion function for is_periph_fw_unprocessed'''
+        if not os.path.exists(hwdef):
+            raise ChibiOSHWDefIncludeNotFoundException(
+                os.path.normpath(hwdef),
+                os.path.normpath(includer)
+            )
         with open(hwdef, "r") as f:
             content = f.read()
             if 'AP_PERIPH' in content:
@@ -3201,7 +3220,7 @@ Please run: Tools/scripts/build_bootloaders.py %s
             # process any include lines:
             for m in re.finditer(r"^include\s+([^\s]*)", content, re.MULTILINE):
                 include_path = os.path.join(os.path.dirname(hwdef), m.group(1))
-                if self.is_periph_fw_unprocessed_file(include_path):
+                if self.is_periph_fw_unprocessed_file(include_path, includer=hwdef):
                     return True
 
     def is_periph_fw_unprocessed(self):
@@ -3266,6 +3285,7 @@ Please run: Tools/scripts/build_bootloaders.py %s
             return
 
         self.romfs_add('defaults.parm', filepath)
+        self.have_defaults_file = True
 
     def process_hwdefs(self):
         for fname in self.hwdef:

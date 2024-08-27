@@ -250,9 +250,6 @@ private:
 
     // are we currently in long failsafe but have postponed it in MODE TAKEOFF until min level alt is reached
     bool long_failsafe_pending;
-    
-    //flag that we have already called autoenable fences once in MODE TAKEOFF
-    bool have_autoenabled_fences;
 
     // GCS selection
     GCS_Plane _gcs; // avoid using this; use gcs()
@@ -369,19 +366,20 @@ private:
         uint32_t AFS_last_valid_rc_ms;
     } failsafe;
 
-    enum Landing_ApproachStage {
-        RTL,
-        LOITER_TO_ALT,
-        ENSURE_RADIUS,
-        WAIT_FOR_BREAKOUT,
-        APPROACH_LINE,
-        VTOL_LANDING,
-    };
-
 #if HAL_QUADPLANE_ENABLED
     // Landing
-    struct {
-        enum Landing_ApproachStage approach_stage;
+    class VTOLApproach {
+    public:
+        enum class Stage {
+            RTL,
+            LOITER_TO_ALT,
+            ENSURE_RADIUS,
+            WAIT_FOR_BREAKOUT,
+            APPROACH_LINE,
+            VTOL_LANDING,
+        };
+
+        Stage approach_stage;
         float approach_direction_deg;
     } vtol_approach_s;
 #endif
@@ -556,7 +554,7 @@ private:
         float forced_throttle;
         uint32_t last_forced_throttle_ms;
 
-#if OFFBOARD_GUIDED == ENABLED
+#if AP_PLANE_OFFBOARD_GUIDED_SLEW_ENABLED
         // airspeed adjustments
         float target_airspeed_cm = -1;  // don't default to zero here, as zero is a valid speed.
         float target_airspeed_accel;
@@ -575,7 +573,7 @@ private:
         uint32_t target_heading_time_ms;
         guided_heading_type_t target_heading_type;
         bool target_heading_limit;
-#endif // OFFBOARD_GUIDED == ENABLED
+#endif // AP_PLANE_OFFBOARD_GUIDED_SLEW_ENABLED
     } guided_state;
 
 #if AP_LANDINGGEAR_ENABLED
@@ -652,7 +650,7 @@ private:
             FUNCTOR_BIND_MEMBER(&Plane::exit_mission_callback, void)};
 
 
-#if PARACHUTE == ENABLED
+#if HAL_PARACHUTE_ENABLED
     AP_Parachute parachute;
 #endif
 
@@ -1158,7 +1156,7 @@ private:
 
     // parachute.cpp
     void parachute_check();
-#if PARACHUTE == ENABLED
+#if HAL_PARACHUTE_ENABLED
     void do_parachute(const AP_Mission::Mission_Command& cmd);
     void parachute_release();
     bool parachute_manual_release();
@@ -1288,6 +1286,11 @@ public:
 
     // allow for landing descent rate to be overridden by a script, may be -ve to climb
     bool set_land_descent_rate(float descent_rate) override;
+
+    // allow scripts to override mission/guided crosstrack behaviour
+    // It's up to the Lua script to ensure the provided location makes sense
+    bool set_crosstrack_start(const Location &new_start_location) override;
+
 #endif // AP_SCRIPTING_ENABLED
 
 };

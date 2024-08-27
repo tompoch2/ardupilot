@@ -1439,8 +1439,7 @@ void PayloadPlace::run()
         copter.flightmode->land_run_horizontal_control();
         // update altitude target and call position controller
         pos_control->land_at_climb_rate_cm(-descent_speed_cms, true);
-        pos_control->update_z_controller();
-        return;
+        break;
     case State::Release:
     case State::Releasing:
     case State::Delay:
@@ -1448,8 +1447,7 @@ void PayloadPlace::run()
         copter.flightmode->land_run_horizontal_control();
         // update altitude target and call position controller
         pos_control->land_at_climb_rate_cm(0.0, false);
-        pos_control->update_z_controller();
-        return;
+        break;
     case State::Ascent:
     case State::Done:
         float vel = 0.0;
@@ -1457,6 +1455,7 @@ void PayloadPlace::run()
         pos_control->input_pos_vel_accel_z(descent_start_altitude_cm, vel, 0.0);
         break;
     }
+    pos_control->update_z_controller();
 }
 #endif
 
@@ -1918,15 +1917,20 @@ void ModeAuto::do_yaw(const AP_Mission::Mission_Command& cmd)
 void ModeAuto::do_change_speed(const AP_Mission::Mission_Command& cmd)
 {
     if (cmd.content.speed.target_ms > 0) {
-        if (cmd.content.speed.speed_type == 2)  {
+        switch (cmd.content.speed.speed_type) {
+        case SPEED_TYPE_CLIMB_SPEED:
             copter.wp_nav->set_speed_up(cmd.content.speed.target_ms * 100.0f);
             desired_speed_override.up = cmd.content.speed.target_ms;
-        } else if (cmd.content.speed.speed_type == 3)  {
+            break;
+        case SPEED_TYPE_DESCENT_SPEED:
             copter.wp_nav->set_speed_down(cmd.content.speed.target_ms * 100.0f);
             desired_speed_override.down = cmd.content.speed.target_ms;
-        } else {
+            break;
+        case SPEED_TYPE_AIRSPEED:
+        case SPEED_TYPE_GROUNDSPEED:
             copter.wp_nav->set_speed_xy(cmd.content.speed.target_ms * 100.0f);
             desired_speed_override.xy = cmd.content.speed.target_ms;
+            break;
         }
     }
 }
@@ -2326,7 +2330,7 @@ bool ModeAuto::resume()
 
 bool ModeAuto::paused() const
 {
-    return wp_nav->paused();
+    return (wp_nav != nullptr) && wp_nav->paused();
 }
 
 #endif

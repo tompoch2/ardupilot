@@ -341,7 +341,129 @@ class Telem(object):
         if not self.connected:
             if not self.connect():
                 return
-        self.update_read()
+        return self.update_read()
+
+
+class IBusMessage(object):
+    def checksum_bytes(self, out):
+        checksum = 0xFFFF
+        for b in iter(out):
+            checksum -= b
+        return checksum
+
+
+class IBusResponse(IBusMessage):
+    def __init__(self, some_bytes):
+        self.len = some_bytes[0]
+        checksum = self.checksum_bytes(some_bytes[:self.len-2])
+        if checksum >> 8 != some_bytes[self.len-1]:
+            raise ValueError("Checksum bad (-1)")
+        if checksum & 0xff != some_bytes[self.len-2]:
+            raise ValueError("Checksum bad (-2)")
+        self.address = some_bytes[1] & 0x0F
+        self.handle_payload_bytes(some_bytes[2:self.len-2])
+
+
+class IBusResponse_DISCOVER(IBusResponse):
+    def handle_payload_bytes(self, payload_bytes):
+        if len(payload_bytes):
+            raise ValueError("Not expecting payload bytes (%u)" %
+                             (len(payload_bytes), ))
+
+
+class IBusResponse_GET_SENSOR_TYPE(IBusResponse):
+    def handle_payload_bytes(self, payload_bytes):
+        if len(payload_bytes) != 2:
+            raise ValueError("Expected 2 payload bytes")
+        self.sensor_type = payload_bytes[0]
+        self.sensor_length = payload_bytes[1]
+
+
+class IBusResponse_GET_SENSOR_VALUE(IBusResponse):
+    def handle_payload_bytes(self, payload_bytes):
+        self.sensor_value = payload_bytes
+
+    def get_sensor_value(self):
+        '''returns an integer based off content'''
+        ret = 0
+        for i in range(len(self.sensor_value)):
+            x = self.sensor_value[i]
+            if sys.version_info.major < 3:
+                x = ord(x)
+            ret = ret | (x << (i*8))
+        return ret
+
+
+class IBusRequest(IBusMessage):
+    def __init__(self, command, address):
+        self.command = command
+        self.address = address
+
+    def payload_bytes(self):
+        '''most requests don't have a payload'''
+        return bytearray()
+
+    def for_wire(self):
+        out = bytearray()
+        payload_bytes = self.payload_bytes()
+        payload_length = len(payload_bytes)
+        length = 1 + 1 + payload_length + 2  # len+cmd|adr+payloadlen+cksum
+        format_string = '<BB' + ('B' * payload_length)
+        out.extend(struct.pack(format_string,
+                               length,
+                               (self.command << 4) | self.address,
+                               *payload_bytes,
+                               ))
+        checksum = self.checksum_bytes(out)
+        out.extend(struct.pack("<BB", checksum & 0xff, checksum >> 8))
+        return out
+
+
+class IBusRequest_DISCOVER(IBusRequest):
+    def __init__(self, address):
+        super(IBusRequest_DISCOVER, self).__init__(0x08, address)
+
+
+class IBusRequest_GET_SENSOR_TYPE(IBusRequest):
+    def __init__(self, address):
+        super(IBusRequest_GET_SENSOR_TYPE, self).__init__(0x09, address)
+
+
+class IBusRequest_GET_SENSOR_VALUE(IBusRequest):
+    def __init__(self, address):
+        super(IBusRequest_GET_SENSOR_VALUE, self).__init__(0x0A, address)
+
+
+class IBus(Telem):
+    def __init__(self, destination_address):
+        super(IBus, self).__init__(destination_address)
+
+    def progress_tag(self):
+        return "IBus"
+
+    def packet_from_buffer(self, buffer):
+        t = buffer[1] >> 4
+        if sys.version_info.major < 3:
+            t = ord(t)
+        if t == 0x08:
+            return IBusResponse_DISCOVER(buffer)
+        if t == 0x09:
+            return IBusResponse_GET_SENSOR_TYPE(buffer)
+        if t == 0x0A:
+            return IBusResponse_GET_SENSOR_VALUE(buffer)
+        raise ValueError("Unknown response type (%u)" % t)
+
+    def update_read(self):
+        self.buffer += self.do_read()
+        while len(self.buffer):
+            msglen = self.buffer[0]
+            if sys.version_info.major < 3:
+                msglen = ord(msglen)
+            if len(self.buffer) < msglen:
+                return
+            packet = self.packet_from_buffer(self.buffer[:msglen])
+            self.buffer = self.buffer[msglen:]
+            return packet
 
 
 class WaitAndMaintain(object):
@@ -1939,9 +2061,9 @@ class TestSuite(ABC):
     def vehicleinfo_key(self):
         return self.log_name()
 
-    def repeatedly_apply_parameter_file(self, filepath):
+    def repeatedly_apply_parameter_filepath(self, filepath):
         if False:
-            return self.repeatedly_apply_parameter_file_mavproxy(filepath)
+            return self.repeatedly_apply_parameter_filepath_mavproxy(filepath)
         parameters = mavparm.MAVParmDict()
 #        correct_parameters = set()
         if not parameters.load(filepath):
@@ -1951,7 +2073,7 @@ class TestSuite(ABC):
             param_dict[p] = parameters[p]
         self.set_parameters(param_dict)
 
-    def repeatedly_apply_parameter_file_mavproxy(self, filepath):
+    def repeatedly_apply_parameter_filepath_mavproxy(self, filepath):
         '''keep applying a parameter file until no parameters changed'''
         for i in range(0, 3):
             self.mavproxy.send("param load %s\n" % filepath)
@@ -1972,7 +2094,7 @@ class TestSuite(ABC):
         if self.params is None:
             self.params = self.model_defaults_filepath(self.frame)
         for x in self.params:
-            self.repeatedly_apply_parameter_file(x)
+            self.repeatedly_apply_parameter_filepath(x)
 
     def count_lines_in_filepath(self, filepath):
         return len([i for i in open(filepath)])
@@ -2237,6 +2359,7 @@ class TestSuite(ABC):
                     force=False,
                     check_position=True,
                     mark_context=True,
+                    startup_location_dist_max=1,
                     ):
         """Reboot SITL instance and wait for it to reconnect."""
         if self.armed() and not force:
@@ -2245,7 +2368,7 @@ class TestSuite(ABC):
         self.reboot_sitl_mav(required_bootcount=required_bootcount, force=force)
         self.do_heartbeats(force=True)
         if check_position and self.frame != 'sailboat':  # sailboats drift with wind!
-            self.assert_simstate_location_is_at_startup_location()
+            self.assert_simstate_location_is_at_startup_location(dist_max=startup_location_dist_max)
         if mark_context:
             self.context_get().reboot_sitl_was_done = True
 
@@ -2441,8 +2564,6 @@ class TestSuite(ABC):
             "SIM_DRIFT_SPEED",
             "SIM_DRIFT_TIME",
             "SIM_EFI_TYPE",
-            "SIM_ENGINE_FAIL",
-            "SIM_ENGINE_MUL",
             "SIM_ESC_ARM_RPM",
             "SIM_FTOWESC_ENA",
             "SIM_FTOWESC_POW",
@@ -2912,7 +3033,7 @@ class TestSuite(ABC):
                         continue
                     if "#if AC_PRECLAND_ENABLED" in line:
                         continue
-                    if "#if OFFBOARD_GUIDED == ENABLED" in line:
+                    if "#if AP_PLANE_OFFBOARD_GUIDED_SLEW_ENABLED" in line:
                         continue
                     if "#end" in line:
                         continue
@@ -4833,10 +4954,10 @@ class TestSuite(ABC):
         self.install_mavlink_module()
         self.context_get().installed_modules.append("mavlink")
 
-    def install_applet_script_context(self, scriptname):
+    def install_applet_script_context(self, scriptname, **kwargs):
         '''installs an applet script which will be removed when the context goes
         away'''
-        self.install_applet_script(scriptname)
+        self.install_applet_script(scriptname, **kwargs)
         self.context_get().installed_scripts.append(scriptname)
 
     def rootdir(self):
@@ -8774,6 +8895,7 @@ Also, ignores heartbeats not from our target system'''
             if ex is None:
                 ex = ArmedAtEndOfTestException("Still armed at end of test")
             self.progress("Armed at end of test; force-rebooting SITL")
+            self.set_rc_default()  # otherwise we might start calibrating ESCs...
             try:
                 self.disarm_vehicle(force=True)
             except AutoTestTimeoutException:
@@ -8785,7 +8907,7 @@ Also, ignores heartbeats not from our target system'''
             else:
                 self.progress("Force-rebooting SITL")
                 self.zero_throttle()
-                self.reboot_sitl() # that'll learn it
+                self.reboot_sitl(startup_location_dist_max=1000000) # that'll learn it
             passed = False
         elif ardupilot_alive and not passed:  # implicit reboot after a failed test:
             self.progress("Test failed but ArduPilot process alive; rebooting")
@@ -10866,13 +10988,17 @@ Also, ignores heartbeats not from our target system'''
             mav=mav,
         )
 
-    def poll_message(self, message_id, timeout=10, quiet=False, mav=None):
+    def poll_message(self, message_id, timeout=10, quiet=False, mav=None, target_sysid=None, target_compid=None):
         if mav is None:
             mav = self.mav
+        if target_sysid is None:
+            target_sysid = self.sysid_thismav()
+        if target_compid is None:
+            target_compid = 1
         if isinstance(message_id, str):
             message_id = eval("mavutil.mavlink.MAVLINK_MSG_ID_%s" % message_id)
         tstart = self.get_sim_time() # required for timeout in run_cmd_get_ack to work
-        self.send_poll_message(message_id, quiet=quiet, mav=mav)
+        self.send_poll_message(message_id, quiet=quiet, mav=mav, target_sysid=target_sysid, target_compid=target_compid)
         self.run_cmd_get_ack(
             mavutil.mavlink.MAV_CMD_REQUEST_MESSAGE,
             mavutil.mavlink.MAV_RESULT_ACCEPTED,
@@ -10890,6 +11016,9 @@ Also, ignores heartbeats not from our target system'''
             if m is None:
                 continue
             if m.id != message_id:
+                continue
+            if (m.get_srcSystem() != target_sysid or
+                    m.get_srcComponent() != target_compid):
                 continue
             return m
 
@@ -13971,15 +14100,16 @@ switch value'''
         '''check each simulated GPS works'''
         self.reboot_sitl()
         orig = self.poll_home_position(timeout=60)
-        # (sim_gps_type, name, gps_type, detection name)
-        # if gps_type is None we auto-detect
         sim_gps = [
+            # (sim_gps_type, name, gps_type, detect_name, serial_protocol, detect_prefix)
+            # if gps_type is None we auto-detect
             # (0, "NONE"),
             (1, "UBLOX", None, "u-blox", 5, 'probing'),
             (5, "NMEA", 5, "NMEA", 5, 'probing'),
             (6, "SBP", None, "SBP", 5, 'probing'),
             (8, "NOVA", 15, "NOVA", 5, 'probing'),  # no attempt to auto-detect this in AP_GPS
             (9, "SBP2", None, "SBP2", 5, 'probing'),
+            (10, "SBF", 10, 'SBF', 5, 'probing'),
             (11, "GSOF", 11, "GSOF", 5, 'specified'), # no attempt to auto-detect this in AP_GPS
             (19, "MSP", 19, "MSP", 32, 'specified'),  # no attempt to auto-detect this in AP_GPS
             # (9, "FILE"),
@@ -14351,6 +14481,115 @@ SERIAL5_BAUD 128
         self._MotorTest(self.run_cmd, **kwargs)
         self._MotorTest(self.run_cmd_int, **kwargs)
 
+    def test_ibus_voltage(self, message):
+        batt = self.mav.recv_match(
+            type='BATTERY_STATUS',
+            blocking=True,
+            timeout=5,
+            condition="BATTERY_STATUS.id==0"
+        )
+        if batt is None:
+            raise NotAchievedException("Did not get BATTERY_STATUS message")
+        want = int(batt.voltages[0] * 0.1)
+
+        if want != message.get_sensor_value():
+            raise NotAchievedException("Bad voltage (want=%u got=%u)" %
+                                       (want, message.get_sensor_value()))
+        self.progress("iBus voltage OK")
+
+    def test_ibus_armed(self, message):
+        got = message.get_sensor_value()
+        want = 1 if self.armed() else 0
+        if got != want:
+            raise NotAchievedException("Expected armed %u got %u" %
+                                       (want, got))
+        self.progress("iBus armed OK")
+
+    def test_ibus_mode(self, message):
+        got = message.get_sensor_value()
+        want = self.mav.messages['HEARTBEAT'].custom_mode
+        if got != want:
+            raise NotAchievedException("Expected mode %u got %u" %
+                                       (want, got))
+        self.progress("iBus mode OK")
+
+    def test_ibus_get_response(self, ibus, timeout=5):
+        tstart = self.get_sim_time()
+        while True:
+            now = self.get_sim_time()
+            if now - tstart > timeout:
+                raise AutoTestTimeoutException("Failed to get ibus data")
+            packet = ibus.update()
+            if packet is not None:
+                return packet
+
+    def IBus(self):
+        '''test the IBus protocol'''
+        self.set_parameter("SERIAL5_PROTOCOL", 49)
+        self.customise_SITL_commandline([
+            "--serial5=tcp:6735" # serial5 spews to localhost:6735
+        ])
+        ibus = IBus(("127.0.0.1", 6735))
+        ibus.connect()
+
+        # expected_sensors should match the list created in AP_IBus_Telem
+        expected_sensors = {
+            # sensor id : (len, IBUS_MEAS_TYPE_*, test_function)
+            1: (2, 0x15, self.test_ibus_armed),
+            2: (2, 0x16, self.test_ibus_mode),
+            5: (2, 0x03, self.test_ibus_voltage),
+        }
+
+        for (sensor_addr, results) in expected_sensors.items():
+            # first make sure it is present:
+            request = IBusRequest_DISCOVER(sensor_addr)
+            ibus.port.sendall(request.for_wire())
+
+            packet = self.test_ibus_get_response(ibus)
+            if packet.address != sensor_addr:
+                raise ValueError("Unexpected sensor address %u" %
+                                 (packet.address,))
+
+            (expected_length, expected_type, validator) = results
+
+            self.progress("Getting sensor (%x) type" % (sensor_addr))
+            request = IBusRequest_GET_SENSOR_TYPE(sensor_addr)
+            ibus.port.sendall(request.for_wire())
+
+            packet = self.test_ibus_get_response(ibus)
+            if packet.address != sensor_addr:
+                raise ValueError("Unexpected sensor address %u" %
+                                 (packet.address,))
+
+            if packet.sensor_type != expected_type:
+                raise ValueError("Unexpected sensor type want=%u got=%u" %
+                                 (expected_type, packet.sensor_type))
+
+            if packet.sensor_length != expected_length:
+                raise ValueError("Unexpected sensor len want=%u got=%u" %
+                                 (expected_length, packet.sensor_length))
+
+            self.progress("Getting sensor (%x) value" % (sensor_addr))
+            request = IBusRequest_GET_SENSOR_VALUE(sensor_addr)
+            ibus.port.sendall(request.for_wire())
+
+            packet = self.test_ibus_get_response(ibus)
+            validator(packet)
+
+        # self.progress("Ensure we cover all sensors")
+        # for i in range(1, 17):  # zero is special
+        #     if i in expected_sensors:
+        #         continue
+        #     request = IBusRequest_DISCOVER(i)
+        #     ibus.port.sendall(request.for_wire())
+
+        #     try:
+        #         packet = self.test_ibus_get_response(ibus, timeout=1)
+        #     except AutoTestTimeoutException:
+        #         continue
+        #     self.progress("Received packet (%s)" % str(packet))
+        #     raise NotAchievedException("IBus sensor %u is untested" % i)
+
     def tests(self):
         return [
             self.PIDTuning,
@@ -14580,7 +14819,12 @@ SERIAL5_BAUD 128
     def load_default_params_file(self, filename):
         '''load a file from Tools/autotest/default_params'''
         filepath = util.reltopdir(os.path.join("Tools", "autotest", "default_params", filename))
-        self.repeatedly_apply_parameter_file(filepath)
+        self.repeatedly_apply_parameter_filepath(filepath)
+
+    def load_params_file(self, filename):
+        '''load a file from test-specific directory'''
+        filepath = os.path.join(testdir, self.current_test_name_directory, filename)
+        self.repeatedly_apply_parameter_filepath(filepath)
 
     def send_pause_command(self):
         '''pause AUTO/GUIDED modes'''

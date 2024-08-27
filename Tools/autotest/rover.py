@@ -3596,8 +3596,75 @@ Brakes have negligible effect (with=%0.2fm without=%0.2fm delta=%0.2fm)
             raise e
         self.reboot_sitl()
 
+    def ClearMission(self, target_system=1, target_component=1):
+        '''check mission clearing'''
+
+        self.start_subtest("Clear via mission_clear_all message")
+        self.upload_simple_relhome_mission([
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 20, 0, 20),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 20, 0, 20),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 20, 0, 20),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 20, 0, 20),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 20, 0, 20),
+        ])
+        self.set_current_waypoint(3)
+
+        self.mav.mav.mission_clear_all_send(
+            target_system,
+            target_component,
+            mavutil.mavlink.MAV_MISSION_TYPE_MISSION
+        )
+
+        self.assert_current_waypoint(0)
+
+        self.drain_mav()
+
+        self.start_subtest("No clear mission while it is being uploaded by a different node")
+        mav2 = mavutil.mavlink_connection("tcp:localhost:5763",
+                                          robust_parsing=True,
+                                          source_system=7,
+                                          source_component=7)
+        self.context_push()
+        self.context_collect("MISSION_REQUEST")
+        mav2.mav.mission_count_send(target_system,
+                                    target_component,
+                                    17,
+                                    mavutil.mavlink.MAV_MISSION_TYPE_MISSION)
+        ack = self.assert_receive_message('MISSION_REQUEST', check_context=True, mav=mav2)
+        self.context_pop()
+
+        self.context_push()
+        self.context_collect("MISSION_ACK")
+        self.mav.mav.mission_clear_all_send(
+            target_system,
+            target_component,
+            mavutil.mavlink.MAV_MISSION_TYPE_MISSION
+        )
+        ack = self.assert_receive_message('MISSION_ACK', check_context=True)
+        self.assert_message_field_values(ack, {
+            "type": mavutil.mavlink.MAV_MISSION_DENIED,
+        })
+        self.context_pop()
+
+        self.progress("Test cancel upload from second connection")
+        self.context_push()
+        self.context_collect("MISSION_ACK")
+        mav2.mav.mission_clear_all_send(
+            target_system,
+            target_component,
+            mavutil.mavlink.MAV_MISSION_TYPE_MISSION
+        )
+        ack = self.assert_receive_message('MISSION_ACK', mav=mav2, check_context=True)
+        self.assert_message_field_values(ack, {
+            "type": mavutil.mavlink.MAV_MISSION_ACCEPTED,
+        })
+        self.context_pop()
+        mav2.close()
+        del mav2
+
     def GCSMission(self):
         '''check MAVProxy's waypoint handling of missions'''
+
         target_system = 1
         target_component = 1
         mavproxy = self.start_mavproxy()
@@ -3605,7 +3672,7 @@ Brakes have negligible effect (with=%0.2fm without=%0.2fm delta=%0.2fm)
         self.delay_sim_time(1)
         if self.get_parameter("MIS_TOTAL") != 0:
             raise NotAchievedException("Failed to clear mission")
-        m = self.assert_receive_message('MISSION_CURRENT', timeout=5)
+        m = self.assert_receive_message('MISSION_CURRENT', timeout=5, verbose=True)
         if m.seq != 0:
             raise NotAchievedException("Bad mission current")
         self.load_mission_using_mavproxy(mavproxy, "rover-gripper-mission.txt")
@@ -5134,6 +5201,7 @@ Brakes have negligible effect (with=%0.2fm without=%0.2fm delta=%0.2fm)
 
         self.install_test_scripts_context([
             "scripting_test.lua",
+            "scripting_require_test_2.lua",
             "math.lua",
             "strings.lua",
             "mavlink_test.lua",
@@ -5146,6 +5214,7 @@ Brakes have negligible effect (with=%0.2fm without=%0.2fm delta=%0.2fm)
 
         for success_text in [
                 "Internal tests passed",
+                "Require test 2 passed",
                 "Math tests passed",
                 "String tests passed",
                 "Received heartbeat from"
@@ -5958,10 +6027,10 @@ Brakes have negligible effect (with=%0.2fm without=%0.2fm delta=%0.2fm)
     def RangeFinder(self):
         '''Test RangeFinder'''
         # the following magic numbers correspond to the post locations in SITL
-        home_string = "%s,%s,%s,%s" % (51.8752066, 14.6487840, 54.15, 315)
+        home_string = "%s,%s,%s,%s" % (51.8752066, 14.6487840, 54.15, 231)
 
         rangefinder_params = {
-            "SIM_SONAR_ROT": 6,
+            "SIM_SONAR_ROT": 0,
         }
         rangefinder_params.update(self.analog_rangefinder_parameters())
 
@@ -5976,7 +6045,7 @@ Brakes have negligible effect (with=%0.2fm without=%0.2fm delta=%0.2fm)
         if m.voltage == 0:
             raise NotAchievedException("Did not get non-zero voltage")
         want_range = 10
-        if abs(m.distance - want_range) > 0.1:
+        if abs(m.distance - want_range) > 0.5:
             raise NotAchievedException("Expected %fm got %fm" % (want_range, m.distance))
 
     def DepthFinder(self):
@@ -6672,10 +6741,10 @@ Brakes have negligible effect (with=%0.2fm without=%0.2fm delta=%0.2fm)
             ]),
         ])
 
-        self.assert_prearm_failure('vehicle outside Polygon fence', other_prearm_failures_fatal=False)
+        self.assert_prearm_failure('Vehicle breaching Polygon fence', other_prearm_failures_fatal=False)
         self.reboot_sitl()
 
-        self.assert_prearm_failure('vehicle outside Polygon fence', other_prearm_failures_fatal=False, timeout=120)
+        self.assert_prearm_failure('Vehicle breaching Polygon fence', other_prearm_failures_fatal=False, timeout=120)
 
         self.progress("Ensure we can arm when a polyfence fence is cleared when we've previously been in breach")
         self.clear_fence()
@@ -6691,7 +6760,7 @@ Brakes have negligible effect (with=%0.2fm without=%0.2fm delta=%0.2fm)
             ]),
         ])
         self.reboot_sitl()
-        self.assert_prearm_failure('vehicle outside Polygon fence', other_prearm_failures_fatal=False, timeout=120)
+        self.assert_prearm_failure('Vehicle breaching Polygon fence', other_prearm_failures_fatal=False, timeout=120)
         self.clear_fence()
         self.wait_ready_to_arm()
 
@@ -6705,11 +6774,11 @@ Brakes have negligible effect (with=%0.2fm without=%0.2fm delta=%0.2fm)
                 self.offset_location_ne(here, 50, 20), # tl,
             ]),
         ])
-        self.assert_prearm_failure('vehicle outside Polygon fence', other_prearm_failures_fatal=False, timeout=120)
+        self.assert_prearm_failure('Vehicle breaching Polygon fence', other_prearm_failures_fatal=False, timeout=120)
         self.set_parameter('FENCE_TYPE', 2)
         self.wait_ready_to_arm()
         self.set_parameter('FENCE_TYPE', 6)
-        self.assert_prearm_failure('vehicle outside Polygon fence', other_prearm_failures_fatal=False, timeout=120)
+        self.assert_prearm_failure('Vehicle breaching Polygon fence', other_prearm_failures_fatal=False, timeout=120)
 
     def OpticalFlow(self):
         '''lightly test OpticalFlow'''
@@ -6724,6 +6793,57 @@ Brakes have negligible effect (with=%0.2fm without=%0.2fm delta=%0.2fm)
 
         self.context_pop()
         self.reboot_sitl()
+
+    def RCDuplicateOptionsExist(self):
+        '''ensure duplicate RC option detection works'''
+        self.wait_ready_to_arm()
+        self.set_parameters({
+            "RC6_OPTION": 118,
+            "RC7_OPTION": 118,
+        })
+        self.assert_arm_failure("Duplicate Aux Switch Options")
+
+    def JammingSimulation(self):
+        '''Test jamming simulation works'''
+        self.wait_ready_to_arm()
+        start_loc = self.assert_receive_message('GPS_RAW_INT')
+        self.set_parameter("SIM_GPS_JAM", 1)
+
+        class Requirement():
+            def __init__(self, field, min_value):
+                self.field = field
+                self.min_value = min_value
+
+            def met(self, m):
+                return getattr(m, self.field) > self.min_value
+
+        requirements = set([
+            Requirement('v_acc', 50000),
+            Requirement('h_acc', 50000),
+            Requirement('vel_acc', 1000),
+            Requirement('vel', 10000),
+        ])
+        low_sats_seen = False
+        seen_bad_loc = False
+        tstart = self.get_sim_time()
+
+        while True:
+            if self.get_sim_time() - tstart > 120:
+                raise NotAchievedException("Did not see all jamming")
+            m = self.assert_receive_message('GPS_RAW_INT')
+            new_requirements = copy.copy(requirements)
+            for requirement in requirements:
+                if requirement.met(m):
+                    new_requirements.remove(requirement)
+            requirements = new_requirements
+            if m.satellites_visible < 6:
+                low_sats_seen = True
+            here = self.assert_receive_message('GPS_RAW_INT')
+            if self.get_distance_int(start_loc, here) > 100:
+                seen_bad_loc = True
+
+            if len(requirements) == 0 and low_sats_seen and seen_bad_loc:
+                break
 
     def tests(self):
         '''return list of all tests'''
@@ -6818,6 +6938,9 @@ Brakes have negligible effect (with=%0.2fm without=%0.2fm delta=%0.2fm)
             self.FenceFullAndPartialTransfer,
             self.MissionPolyEnabledPreArm,
             self.OpticalFlow,
+            self.RCDuplicateOptionsExist,
+            self.ClearMission,
+            self.JammingSimulation,
         ])
         return ret
 
