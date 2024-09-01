@@ -27,18 +27,15 @@
 
 #include "AP_AHRS_Backend.h"
 #include <AP_NavEKF2/AP_NavEKF2.h>
-#include <AP_NavEKF3/AP_NavEKF3.h>
 #include <AP_NavEKF/AP_Nav_Common.h>              // definitions shared by inertial and ekf nav filters
 
 #include "AP_AHRS_DCM.h"
+#include "AP_AHRS_NavEKF3.h"
 #include "AP_AHRS_SIM.h"
 #include "AP_AHRS_External.h"
 
 // forward declare view class
 class AP_AHRS_View;
-
-#define AP_AHRS_NAVEKF_SETTLE_TIME_MS 20000     // time in milliseconds the ekf needs to settle after being started
-
 
 // fwd declare GSF estimator
 class EKFGSF_yaw;
@@ -456,11 +453,11 @@ public:
     }
     
     // these are only out here so vehicles can reference them for parameters
+#if AP_AHRS_NAVEKF3_ENABLED
+    AP_AHRS_NavEKF3 EKF3;
+#endif
 #if HAL_NAVEKF2_AVAILABLE
     NavEKF2 EKF2;
-#endif
-#if HAL_NAVEKF3_AVAILABLE
-    NavEKF3 EKF3;
 #endif
 
     // for holding parameters
@@ -757,7 +754,6 @@ private:
     bool _ekf2_started;
 #endif
 #if HAL_NAVEKF3_AVAILABLE
-    bool _ekf3_started;
     void update_EKF3(void);
 #endif
 
@@ -881,9 +877,6 @@ private:
     // get active EKF type
     EKFType _active_EKF_type(void) const;
 
-    // return a wind estimation vector, in m/s
-    bool _wind_estimate(Vector3f &wind) const WARN_IF_UNUSED;
-
     // return a true airspeed estimate (navigation airspeed) if
     // available. return true if we have an estimate
     bool _airspeed_estimate_true(float &airspeed_ret) const;
@@ -916,9 +909,6 @@ private:
 
     // get secondary EKF type.  returns false if no secondary (i.e. only using DCM)
     bool _get_secondary_EKF_type(EKFType &secondary_ekf_type) const;
-
-    // return the index of the primary core or -1 if no primary core selected
-    int8_t _get_primary_core_index() const;
 
     // get the index of the current primary accelerometer sensor
     uint8_t _get_primary_accel_index(void) const;
@@ -1003,7 +993,9 @@ private:
 #endif
     struct AP_AHRS_Backend::Estimates sim_estimates;
 #endif
-
+#if AP_AHRS_NAVEKF3_ENABLED
+    struct AP_AHRS_Backend::Estimates ekf3_estimates;
+#endif
 #if AP_AHRS_EXTERNAL_ENABLED
     AP_AHRS_External external;
     struct AP_AHRS_Backend::Estimates external_estimates;
@@ -1018,6 +1010,12 @@ private:
     bool option_set(Options option) const {
         return (_options & uint16_t(option)) != 0;
     }
+
+    AP_AHRS_Backend &_active_backend();
+    AP_AHRS_Backend::Estimates &_active_estimates();
+    AP_AHRS_Backend *active_backend;
+    AP_AHRS_Backend::Estimates *active_estimates;
+
 };
 
 namespace AP {
