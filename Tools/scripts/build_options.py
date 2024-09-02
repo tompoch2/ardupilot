@@ -52,6 +52,7 @@ BUILD_OPTIONS = [
     Feature('Battery', 'BATTERY_FUELLEVEL_ANALOG', 'AP_BATTERY_FUELLEVEL_ANALOG_ENABLED', 'Enable Flow Level Analog BattryMonitor', 0, None),  # noqa: E501
     Feature('Battery', 'BATTERY_SMBUS', 'AP_BATTERY_SMBUS_ENABLED', 'Enable SMBUS BatteryMonitor', 0, None),
     Feature('Battery', 'BATTERY_INA2XX', 'AP_BATTERY_INA2XX_ENABLED', 'Enable INA2XX BatteryMonitor', 0, None),
+    Feature('Battery', 'BATTERY_INA3221', 'AP_BATTERY_INA3221_ENABLED', 'Enable INA3221 BatteryMonitor', 0, None),
     Feature('Battery', 'BATTERY_SYNTHETIC_CURRENT', 'AP_BATTERY_SYNTHETIC_CURRENT_ENABLED', 'Enable Synthetic Current Monitor', 0, None), # noqa: E501
     Feature('Battery', 'BATTERY_ESC_TELEM_OUT', 'AP_BATTERY_ESC_TELEM_OUTBOUND_ENABLED', 'Enable ability to put battery monitor data in ESC telem stream', 0, None), # noqa: E501
     Feature('Battery', 'BATTERY_WATT_MAX', 'AP_BATTERY_WATT_MAX_ENABLED', 'Enable param BATT_WATT_MAX', 0, None), # noqa: E501
