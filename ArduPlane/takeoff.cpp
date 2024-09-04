@@ -211,7 +211,7 @@ void Plane::takeoff_calc_pitch(void)
             // increase the robustness of hand launches, particularly
             // in cross-winds. If we start to roll over then we reduce
             // pitch demand until the roll recovers
-            float roll_error_rad = radians(constrain_float(labs(nav_roll_cd - ahrs.roll_sensor) * 0.01, 0, 90));
+            float roll_error_rad = radians(constrain_float(labs(nav_roll_cd*0.01 - ahrs.get_roll_deg()), 0, 90));
             float reduction = sq(cosf(roll_error_rad));
             nav_pitch_cd *= reduction;
         }

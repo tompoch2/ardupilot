@@ -181,6 +181,9 @@ public:
     float roll;
     float pitch;
     float yaw;
+    float roll_deg;
+    float pitch_deg;
+    float yaw_deg;
     int32_t roll_sensor;
     int32_t pitch_sensor;
     int32_t yaw_sensor;

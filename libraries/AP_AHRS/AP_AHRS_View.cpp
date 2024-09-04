@@ -70,12 +70,15 @@ void AP_AHRS_View::update()
 
     rot_body_to_ned.to_euler(&roll, &pitch, &yaw);
 
-    roll_sensor  = degrees(roll) * 100;
-    pitch_sensor = degrees(pitch) * 100;
-    yaw_sensor   = degrees(yaw) * 100;
-    if (yaw_sensor < 0) {
-        yaw_sensor += 36000;
+    roll_deg = degrees(roll);
+    pitch_deg = degrees(pitch);
+    yaw_deg = degrees(yaw);
+    if (yaw_deg < 0) {
+        yaw_deg += 360;
     }
+    roll_sensor  = roll_deg * 100;
+    pitch_sensor = pitch_deg * 100;
+    yaw_sensor   = yaw_deg * 100;
 
     ahrs.calc_trig(rot_body_to_ned,
                    trig.cos_roll, trig.cos_pitch, trig.cos_yaw,

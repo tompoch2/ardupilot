@@ -151,11 +151,16 @@ void AP_AHRS::update_trig(void)
  */
 void AP_AHRS::update_cd_values(void)
 {
-    roll_sensor  = degrees(roll) * 100;
-    pitch_sensor = degrees(pitch) * 100;
-    yaw_sensor   = degrees(yaw) * 100;
-    if (yaw_sensor < 0)
-        yaw_sensor += 36000;
+    rpy_deg[0] = degrees(roll);
+    rpy_deg[1] = degrees(pitch);
+    rpy_deg[2] = degrees(yaw);
+    if (rpy_deg[2] < 0) {
+        rpy_deg[2] += 360;
+    }
+
+    roll_sensor  = rpy_deg[0] * 100;
+    pitch_sensor = rpy_deg[1] * 100;
+    yaw_sensor   = rpy_deg[2] * 100;
 }
 
 /*
