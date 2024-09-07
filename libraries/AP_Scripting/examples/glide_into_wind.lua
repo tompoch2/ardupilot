@@ -170,7 +170,7 @@ function update()
   -- If link has been lost for more than FS_LONG_TIMEOUT and we are in FBWA, turn into wind
   if link_lost_for > FS_LONG_TIMEOUT:get() * 1000 then
     if FS_LONG_ACTN:get() == 2 then
-      if parse_flight_mode(vehicle:get_mode()) == "FBWA" then
+      if vehicle:get_mode() == mode_FBWA then
         -- Get the heading angle
         hdg = math.floor(math.deg(ahrs:get_yaw()))
         -- Get wind direction. Function wind_estimate returns x and y for direction wind blows in, add pi to get true wind dir
@@ -262,33 +262,6 @@ end
 -- Play tune
 function play_tune(tune)
   notify:play_tune(tune)
-end
-
--- Parse flight mode
-function parse_flight_mode(flight_mode_num)
-  if flight_mode_num == mode_MANUAL then
-    return "MANUAL"
-  elseif flight_mode_num == mode_CIRCLE then
-    return "CIRLCE"
-  elseif flight_mode_num == mode_STABILIZE then
-    return "STABILIZED"
-  elseif flight_mode_num == mode_FBWA then
-    return "FBWA"
-  elseif flight_mode_num == mode_FBWB then
-    return "FBWB"
-  elseif flight_mode_num == mode_AUTO then
-    return "AUTO"
-  elseif flight_mode_num == mode_RTL then
-    return "RTL"
-  elseif flight_mode_num == mode_LOITER then
-    return "LOITER"
-  elseif flight_mode_num == mode_TAKEOFF then
-    return "TAKEOFF"
-  elseif flight_mode_num == mode_GUIDED then
-    return "GUIDED"
-  else
-    return string.format("%d",flight_mode_num)
-  end
 end
 
 -- Returns the angle in range 0-360
