@@ -13,7 +13,7 @@
 -- Functionality and setup
 -- 1. Set SCR_ENABLE = 1
 -- 2. Put script in scripts folder, boot twice
--- 3. Two new paramters has appeared:
+-- 3. Two new parameters have appeared:
 --    - GLIDE_WIND_ENABL (0=disable, 1=enable),
 --    - GLIDE_WIND_RKP (kP for RC-override roll, recommended setting is 4). 
 -- 4. Set RC_OVERRIDE_TIME to 0.3 if this does not conflict with other scripts.
