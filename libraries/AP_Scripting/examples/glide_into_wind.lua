@@ -6,9 +6,11 @@
 -- might mean flying without control for an extended time and distance. One
 -- option in ArduPlane is to set FS_Long to Glide, which makes the drone glide
 -- and land in the direction it happened to have when the command was invoked,
--- without regard to the wind. This script ensures that the drone turns into the
--- wind as GLIDE (FBWA) is initiated, thus minimizing the speed over ground and
--- impact energy at landing.
+-- without regard to the wind. This script offers a way to decrease the kinetic
+-- energy in this blind landing by means of steering the drone towards the wind
+-- as GLIDE is initiated, hence lowering the ground speed. The intentition is to
+-- minimize impact energy at landing - foremost for any third party, but also to
+-- minimize damages on the drone.
 
 -- Functionality and setup
 -- 1. Set SCR_ENABLE = 1
@@ -29,13 +31,23 @@
 -- 12. Test in flight: Fly a mission, monitor estimated wind direction from GCS,
 --     then fail GCS link and see what happens.
 -- 13. Once heading is into wind script will stop steering and not steer again
---     until link is recovered and lost an other time.
--- 14. Script is aborted by changing flight mode, from RC or recovered GCS.
+--     until state machine is reset and failsafe is triggered again. The script
+--     'stops steerig' mainly to not override input from RC-roll for longer than
+--     needed since it can confuse the pilot. In addition, steering in low
+--     airspeeds (thr=0) increases risks of stall and it is prefereable touch
+--     ground in level roll attitude. If the script parameter hdg_ok_lim is set
+--     to 0, the 'stop steering' is effectively disabled and the drone will try
+--     to steer into the wind during the whole failsafe procedure (not
+--     recommended).
+-- 14. Script will stop interfering when mode is changed from FBWA to another
+--     mode.
 
--- Credit
--- This script is developed by UASolutions, commissioned by, and in cooperation
--- with Remote.aero, with funding from Swedish AeroEDIH, in response to a need
--- from the Swedish Sea Rescue Society (Sjöräddningssällskapet, SSRS). 
+-- During the fail safe manouverouver a warning tune is played.
+
+-- Credits
+-- This script is developed by agising at UASolutions, commissioned by, and in
+-- cooperation with Remote.aero, with funding from Swedish AeroEDIH, in response
+-- to a need from the Swedish Sea Rescue Society (Sjöräddningssällskapet, SSRS). 
 
 -- Disable diagnostics related to reading paramters to pass linter
 ---@diagnostic disable: need-check-nil
