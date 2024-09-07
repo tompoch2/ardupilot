@@ -113,7 +113,6 @@ function _init()
   -- Init parameters
   FS_GCS_ENABL = bind_param('FS_GCS_ENABL')               -- Is set to 1 if GCS lol should trigger FS after FS_LONG_TIMEOUT
   FS_LONG_TIMEOUT = bind_param('FS_LONG_TIMEOUT')         -- FS long timeout in seconds
-  AFS_GCS_TIMEOUT = bind_param('AFS_GCS_TIMEOUT')         -- Doc: The time (in seconds) of persistent data link loss before GCS failsafe occurs. Not sure though
   RCMAP_ROLL = bind_param('RCMAP_ROLL')                   -- Shows the channel used for Roll input
   FS_LONG_ACTN = bind_param('FS_LONG_ACTN')                -- Is set to 2 for Glide
 
