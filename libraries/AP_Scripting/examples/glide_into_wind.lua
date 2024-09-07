@@ -80,16 +80,8 @@ local _INFO = 6
 local _WARNING = 4
 
 -- Plane flight modes mapping
-local mode_MANUAL = 0
-local mode_CIRCLE = 1
-local mode_STABILIZE = 2
 local mode_FBWA = 5
-local mode_FBWB = 6 
-local mode_AUTO = 10
-local mode_RTL = 11
-local mode_LOITER = 12
-local mode_TAKEOFF = 13
-local mode_GUIDED = 15
+
 
 -- Tunes
 local _tune_glide_warn = "MFT240 L16 cdefgfgfgfg"   --  The warning tone played during GLIDE_WIND
