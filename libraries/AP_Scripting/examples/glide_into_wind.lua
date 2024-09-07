@@ -219,6 +219,7 @@ function update()
       else
         -- Do not trigger glide into wind, require new heart beats to get here again
         fs_state = "CANCELED"
+      end
     end
   -- State TRIGGERED
   elseif fs_state == "TRIGGERED" then
