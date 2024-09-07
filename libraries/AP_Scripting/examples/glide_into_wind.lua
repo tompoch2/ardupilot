@@ -110,7 +110,7 @@ function _init()
 
   -- Test paramter
   if GLIDE_WIND_ENABL:get() == nil then
-    send_to_gcs(_INFO, 'LUA: Something went wrong, GLIDE_WIND_WIND not created')
+    send_to_gcs(_INFO, 'LUA: Something went wrong, GLIDE_WIND_ENABL not created')
     return _init(), looptime
   else 
     gw_enable = GLIDE_WIND_ENABL:get()
