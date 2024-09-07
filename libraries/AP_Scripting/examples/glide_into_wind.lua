@@ -44,6 +44,20 @@
 
 -- During the fail safe manouverouver a warning tune is played.
 
+-- State machine
+-- CAN_TRIGGER 
+--   - Do: Nothing
+--   - Change state: If the failsafe glide is triggered:
+--     if FS_GCS_ENABL is set, chage to TRIGGERED else change to CANCELED
+--
+-- TRIGGERED
+--   - Do: Steer into wind and play warning tune
+--   - Change state: If flight mode is changed from FBWA, change state to CANCELED
+--
+-- CANCELED 
+--   - Do: Nothing
+--   - Change state: When new heart beat arrive, change state to CAN_TRIGGER
+
 -- Credits
 -- This script is developed by agising at UASolutions, commissioned by, and in
 -- cooperation with Remote.aero, with funding from Swedish AeroEDIH, in response
@@ -65,7 +79,7 @@ local hdg_ok_t_lim = 5000       -- Stop steering towards wind after hdg_ok_t_lim
 local _INFO = 6
 local _WARNING = 4
 
--- Plane flight modes
+-- Plane flight modes mapping
 local mode_MANUAL = 0
 local mode_CIRCLE = 1
 local mode_STABILIZE = 2
@@ -80,6 +94,9 @@ local mode_GUIDED = 15
 -- Tunes
 local _tune_glide_warn = "MFT240 L16 cdefgfgfgfg"   --  The warning tone played during GLIDE_WIND
 
+--State variable
+local fs_state = nil
+
 -- Flags
 local override_enable = false     -- Flag to allow RC channel loverride
 
@@ -91,7 +108,7 @@ local roll = nil                  -- roll control signal contribution
 local gw_enable = nil             -- glide into wind enable flag
 local hdg = nil                   -- vehicle heading
 local wind = Vector3f()           -- wind 3Dvector
-local link_lost_for = 0           -- link loss time counter
+local link_lost_for = nil         -- link loss time counter
 local last_seen = nil             -- timestamp last received heartbeat
 local tune_time_since = 0         -- Timer for last played tune
 local hdg_ok_t = 0                -- Timer
@@ -114,7 +131,7 @@ function _init()
   FS_GCS_ENABL = bind_param('FS_GCS_ENABL')               -- Is set to 1 if GCS lol should trigger FS after FS_LONG_TIMEOUT
   FS_LONG_TIMEOUT = bind_param('FS_LONG_TIMEOUT')         -- FS long timeout in seconds
   RCMAP_ROLL = bind_param('RCMAP_ROLL')                   -- Shows the channel used for Roll input
-  FS_LONG_ACTN = bind_param('FS_LONG_ACTN')                -- Is set to 2 for Glide
+  FS_LONG_ACTN = bind_param('FS_LONG_ACTN')               -- Is set to 2 for Glide
 
   
   send_to_gcs(_INFO, 'LUA: FS_LONG_TIMEOUT timeout: ' .. FS_LONG_TIMEOUT:get() .. 's')
@@ -131,8 +148,12 @@ function _init()
   -- Get the rc channel to override 
   RC_ROLL = rc:get_channel(RCMAP_ROLL:get())
   
-  -- init last seen
+  -- Init last_seen.
   last_seen = gcs:last_seen()
+
+  -- Init link_lost_for [ms] to FS_LONG_TIMEOUT [s] to prevent link to recover without
+  -- new heartbeat. This is to properly init the state machine.
+  link_lost_for = FS_LONG_TIMEOUT:get() * 1000
 
   -- If GLIDE_WIND_ENABL, but other required setting missing, warning
   local fs_long_actn = FS_LONG_ACTN:get()
@@ -142,6 +163,10 @@ function _init()
     send_to_gcs(_WARNING, 'GLIDE_WIND_ENABL is set, but FS_LONG_ACTN is not 2.')
   end
 
+  -- Init fs_state machine to CANCELED. A heartbeat is required to set the state
+  -- to CAN_TRIGGER from where Glide into wind can be triggered.
+  fs_state = 'CANCELED'
+
   -- All set, go to update
   return update(), long_looptime
 end
@@ -149,6 +174,7 @@ end
 ------------
 -- Main loop
 ------------
+
 function update()
   -- Check if state of GLIDE_WIND_ENABL parameter changed, print every change
   if gw_enable ~= GLIDE_WIND_ENABL:get() then
@@ -178,75 +204,95 @@ function update()
     link_lost_for = 0
   end
 
-  -- If link has been lost for more than FS_LONG_TIMEOUT and we are in FBWA, turn into wind
-  if link_lost_for > FS_LONG_TIMEOUT:get() * 1000 then
-    if FS_LONG_ACTN:get() == 2 then
-      if vehicle:get_mode() == mode_FBWA then
-        -- Get the heading angle
-        hdg = math.floor(math.deg(ahrs:get_yaw()))
-        -- Get wind direction. Function wind_estimate returns x and y for direction wind blows in, add pi to get true wind dir
-        wind = ahrs:wind_estimate()
-        wind_dir_rad = math.atan(wind:y(), wind:x())+math.pi
-        wind_dir_180 = math.floor(wrap_180(math.deg(wind_dir_rad)))
-
-        -- P-regulator, calc error choose closes way - right or left.
-        error = wrap_180(wind_dir_180 - hdg)
-        
-        -- Multiply with kP and cast to int
-        roll = math.floor(error*GLIDE_WIND_RKP:get())
-        
-        -- Limit output
-        if roll > rlim then
-          roll = rlim
-        elseif roll < -rlim then
-          roll = -rlim
-        end
-
-        -- Check if we are close to target heading
-        if math.abs(error) < hdg_ok_lim then
-          -- If we have been close to target heading for hdg_ok_t_lim, stop overriding
-          if hdg_ok_t > hdg_ok_t_lim then
-            -- Reset roll input, send text to gcs
-            if override_enable then
-              RC_ROLL:set_override(1500)
-              send_to_gcs(_INFO, 'LUA: Gliding into wind, no more steering')
-            end
-            -- Do not override again until link has been recovered, set flag to false
-            override_enable = false
-          else
-            hdg_ok_t = hdg_ok_t + looptime
-          end
-        -- Heading error is big, reset timer hdg_ok_t 
-        else
-          hdg_ok_t = 0
-        end
-
-        -- Play tune every tune_repeat_t [ms]
-        if tune_time_since > tune_repeat_t  then
-          -- Play tune and reset timer
-          send_to_gcs(_INFO, 'LUA: Play warning tune')
-          play_tune(_tune_glide_warn)
-          tune_time_since = 0
-        else
-          tune_time_since = tune_time_since + looptime
-        end
-
-        if override_enable then
-          RC_ROLL:set_override(1500+roll)  -- Is active for RC_OVERRIDE_TIME (default 3s)
-        end
-      end
+  -- Run the state machine
+  -- State CAN_TRIGGER
+  if fs_state == 'CAN_TRIGGER' then
+    if link_lost_for > FS_LONG_TIMEOUT:get() * 1000 then
+      -- Double check that FS_GCS_ENABL is set
+      if FS_GCS_ENABL:get() == 1 then
+        fs_state = "TRIGGERED"
+        -- Reset some variables
+        roll = 0
+        hdg_ok_t = 0
+        override_enable = true
+        send_to_gcs(_INFO, 'LUA: Glide into wind TRIGGERED')
+      else
+        -- Do not trigger glide into wind, require new heart beats to get here again
+        fs_state = "CANCELED"
     end
-  -- Link is not lost, wait for loosing link
-  else
-    roll = 0
-    hdg_ok_t = 0
-    override_enable = true
+  -- State TRIGGERED
+  elseif fs_state == "TRIGGERED" then
+    if vehicle:get_mode() ~= mode_FBWA then
+      fs_state = "CANCELED"
+      send_to_gcs(_INFO, 'LUA: Glide into wind CANCELED')
+    end
+  -- State CANCELED
+  elseif fs_state == "CANCELED" then
+    if link_lost_for < FS_LONG_TIMEOUT:get() * 1000 then
+      fs_state = "CAN_TRIGGER"
+      send_to_gcs(_INFO, 'LUA: Glide into wind CAN_TRIGGER')
+    end
   end
+
+  -- State TRIGGERED actions
+  if fs_state == "TRIGGERED" then
+    -- Get the heading angle
+    hdg = math.floor(math.deg(ahrs:get_yaw()))
+    -- Get wind direction. Function wind_estimate returns x and y for direction wind blows in, add pi to get true wind dir
+    wind = ahrs:wind_estimate()
+    wind_dir_rad = math.atan(wind:y(), wind:x())+math.pi
+    wind_dir_180 = math.floor(wrap_180(math.deg(wind_dir_rad)))
+
+    -- P-regulator, calc error choose closes way - right or left.
+    error = wrap_180(wind_dir_180 - hdg)
+    
+    -- Multiply with kP and cast to int
+    roll = math.floor(error*GLIDE_WIND_RKP:get())
+    
+    -- Limit output
+    if roll > rlim then
+      roll = rlim
+    elseif roll < -rlim then
+      roll = -rlim
+    end
+
+    -- Check if we are close to target heading
+    if math.abs(error) < hdg_ok_lim then
+      -- If we have been close to target heading for hdg_ok_t_lim, stop overriding
+      if hdg_ok_t > hdg_ok_t_lim then
+        -- Reset roll input, send text to gcs
+        if override_enable then
+          RC_ROLL:set_override(1500)
+          send_to_gcs(_INFO, 'LUA: Glide into wind steering complete, just GLIDE')
+        end
+        -- Do not override again until state machine has triggered again
+        override_enable = false
+      else
+        hdg_ok_t = hdg_ok_t + looptime
+      end
+    -- Heading error is big, reset timer hdg_ok_t 
+    else
+      hdg_ok_t = 0
+    end
+
+    -- Play tune every tune_repeat_t [ms]
+    if tune_time_since > tune_repeat_t  then
+      -- Play tune and reset timer
+      send_to_gcs(_INFO, 'LUA: Play warning tune')
+      play_tune(_tune_glide_warn)
+      tune_time_since = 0
+    else
+      tune_time_since = tune_time_since + looptime
+    end
+
+    if override_enable then
+      RC_ROLL:set_override(1500+roll)  -- Is active for RC_OVERRIDE_TIME (default 3s)
+    end
+  end
+
   return update, looptime
 end
 
--- Fail safe functions:
--- https://ardupilot.org/plane/docs/apms-failsafe-function.html
 
 -------------------
 -- Helper functions
