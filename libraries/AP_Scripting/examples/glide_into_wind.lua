@@ -139,7 +139,7 @@ end
 -- Main loop
 ------------
 function update()
-  -- Check if state of GLIDE_WIND_WIND parameter changed, print every change
+  -- Check if state of GLIDE_WIND_ENABL parameter changed, print every change
   if gw_enable ~= GLIDE_WIND_ENABL:get() then
     gw_enable = GLIDE_WIND_ENABL:get()
     send_to_gcs(_INFO, 'LUA: GLIDE_WIND_ENABL: ' .. gw_enable)
