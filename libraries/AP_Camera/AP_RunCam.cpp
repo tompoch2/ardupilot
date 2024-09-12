@@ -36,7 +36,7 @@ const AP_Param::GroupInfo AP_RunCam::var_info[] = {
     // @DisplayName: RunCam device type
     // @Description: RunCam device type used to determine OSD menu structure and shutter options.
     // @Values: 0:Disabled, 1:RunCam Split Micro/RunCam with UART, 2:RunCam Split, 3:RunCam Split4 4k, 4:RunCam Hybrid/RunCam Thumb Pro, 5:Runcam 2 4k
-    AP_GROUPINFO_FLAGS("TYPE", 1, AP_RunCam, _cam_type, int(DeviceType::Disabled), AP_PARAM_FLAG_ENABLE),
+    AP_GROUPINFO_FLAGS("TYPE", 1, AP_RunCam, _cam_type, int(DeviceType::SplitMicro), AP_PARAM_FLAG_ENABLE),
 
     // @Param: FEATURES
     // @DisplayName: RunCam features available
@@ -118,13 +118,16 @@ AP_RunCam::Menu AP_RunCam::_menus[RUNCAM_MAX_DEVICE_TYPES] = {
 	{ 6, { 3, 10, 2, 2, 8 }}, // Runcam 2 4K
 };
 
-AP_RunCam::AP_RunCam()
+AP_RunCam::AP_RunCam(AP_Camera &frontend, AP_Camera_Params &params, uint8_t instance)
+    : AP_Camera_Backend(frontend, params, instance)
 {
     AP_Param::setup_object_defaults(this, var_info);
-    if (_singleton != nullptr) {
+    if (_singleton != nullptr && _singleton->_instance == instance) {
         AP_HAL::panic("AP_RunCam must be singleton");
     }
-    _singleton = this;
+    if (_singleton == nullptr) {
+        _singleton = this;
+    }
     _cam_type.set(constrain_int16(_cam_type, 0, RUNCAM_MAX_DEVICE_TYPES));
     _video_recording = VideoOption(_cam_control_option & uint8_t(ControlOption::VIDEO_RECORDING_AT_BOOT));
 }
@@ -1056,6 +1059,39 @@ uint8_t AP_RunCam::Request::get_expected_response_length(const Command command) 
     }
 
     return 0;
+}
+
+// AP_Camera API
+
+// return true if healthy
+bool AP_RunCam::healthy() const
+{
+    return true;
+}
+
+// momentary switch to change camera between picture and video modes
+void AP_RunCam::cam_mode_toggle() {
+
+}
+
+// entry point to actually take a picture.  returns true on success
+bool AP_RunCam::trigger_pic() {
+    return false;
+}
+
+// send camera information message to GCS
+void AP_RunCam::send_camera_information(mavlink_channel_t chan) const
+{
+}
+
+// send camera settings message to GCS
+void AP_RunCam::send_camera_settings(mavlink_channel_t chan) const
+{
+}
+
+// send camera capture status message to GCS
+void AP_RunCam::send_camera_capture_status(mavlink_channel_t chan) const
+{
 }
 
 AP_RunCam *AP::runcam() {
