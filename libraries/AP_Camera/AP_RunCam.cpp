@@ -23,7 +23,7 @@
  */
 #include "AP_RunCam.h"
 
-#if HAL_RUNCAM_ENABLED
+#if AP_CAMERA_RUNCAM_ENABLED
 
 #include <AP_Math/AP_Math.h>
 #include <AP_Math/crc.h>
@@ -1098,4 +1098,4 @@ AP_RunCam *AP::runcam() {
     return AP_RunCam::get_singleton();
 }
 
-#endif  // HAL_RUNCAM_ENABLED
+#endif  // AP_CAMERA_RUNCAM_ENABLED

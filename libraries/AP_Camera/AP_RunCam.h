@@ -25,7 +25,7 @@
 
 #include "AP_Camera_Backend.h"
 
-#if HAL_RUNCAM_ENABLED
+#if AP_CAMERA_RUNCAM_ENABLED
 
 #include <AP_Param/AP_Param.h>
 #include <RC_Channel/RC_Channel.h>
@@ -468,4 +468,4 @@ namespace AP
 AP_RunCam *runcam();
 };
 
-#endif  // HAL_RUNCAM_ENABLED
+#endif  // AP_CAMERA_RUNCAM_ENABLED
