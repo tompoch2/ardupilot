@@ -869,6 +869,13 @@ void AP_Camera::convert_params()
         // CAM_TRIGG_TYPE was set to Relay, GoPro or Mount
         cam1_type = cam_trigg_type + 1;
     }
+#if AP_CAMERA_RUNCAM_ENABLED
+    // RunCam protocol configured so set cam type to RunCam
+    AP_SerialManager *serial_manager = AP_SerialManager::get_singleton();
+    if (serial_manager && serial_manager->find_serial(AP_SerialManager::SerialProtocol_RunCam, 0)) {
+        cam1_type = uint8_t(CameraType::RUNCAM);
+    }
+#endif
     _params[0].type.set_and_save(cam1_type);
 
     // convert CAM_DURATION (in deci-seconds) to CAM1_DURATION (in seconds)
