@@ -845,6 +845,11 @@ void GCS_MAVLINK_Rover::handle_set_attitude_target(const mavlink_message_t &msg)
     }
 }
 
+void GCS_MAVLINK_Rover::send_acc_ignore_must_be_set_message(const char *msgname)
+{
+    GCS_SEND_TEXT(MAV_SEVERITY_INFO, "Ignoring %s; set ACC_IGNORE in mask", msgname);
+}
+
 void GCS_MAVLINK_Rover::handle_set_position_target_local_ned(const mavlink_message_t &msg)
 {
     // decode packet
@@ -952,6 +957,7 @@ void GCS_MAVLINK_Rover::handle_set_position_target_local_ned(const mavlink_messa
 
     if (!acc_ignore) {
         // ignore any command where acceleration is not ignored
+        send_acc_ignore_must_be_set_message("SET_POSITION_TARGET_LOCAL_NED");
         return;
     }
 
@@ -1061,6 +1067,7 @@ void GCS_MAVLINK_Rover::handle_set_position_target_global_int(const mavlink_mess
 
     if (!acc_ignore) {
         // ignore any command where acceleration is not ignored
+        send_acc_ignore_must_be_set_message("SET_POSITION_TARGET_GLOBAL_INT");
         return;
     }
 
