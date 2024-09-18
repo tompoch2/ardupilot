@@ -9,6 +9,7 @@
 
 static Vector3p posvel_pos_target_cm;
 static Vector3f posvel_vel_target_cms;
+static Location::AltFrame posvel_frame;
 static uint32_t update_time_ms;
 
 struct {
@@ -114,6 +115,22 @@ void ModeGuided::guided_vel_control_start()
     set_auto_yaw_mode(AUTO_YAW_HOLD);
 }
 
+// posvel helper function: use above home frame
+void ModeGuided::set_posvel_frame_above_home()
+{
+    posvel_frame = Location::AltFrame::ABOVE_HOME;
+    position_control->set_pos_offset_z_cm(0);
+    position_control->set_pos_offset_target_z_cm(0);
+}
+
+// posvel helper function: use above terrain frame
+void ModeGuided::set_posvel_frame_above_terrain(float destination_z)
+{
+    posvel_frame = Location::AltFrame::ABOVE_TERRAIN;
+    position_control->set_pos_offset_z_cm(sub.rangefinder_state.inertial_alt_cm - destination_z);
+    position_control->set_pos_offset_target_z_cm(sub.rangefinder_state.rangefinder_terrain_offset_cm);
+}
+
 // initialise guided mode's posvel controller
 void ModeGuided::guided_posvel_control_start()
 {
@@ -130,6 +147,9 @@ void ModeGuided::guided_posvel_control_start()
 
     // pilot always controls yaw
     set_auto_yaw_mode(AUTO_YAW_HOLD);
+
+    // default frame is ABOVE_HOME
+    set_posvel_frame_above_home();
 }
 
 // initialise guided mode's angle controller
@@ -291,16 +311,35 @@ void ModeGuided::guided_set_velocity(const Vector3f& velocity, bool use_yaw, flo
 }
 
 // set guided mode posvel target
-bool ModeGuided::guided_set_destination_posvel(const Vector3f& destination, const Vector3f& velocity)
+bool ModeGuided::guided_set_destination_posvel(const Vector3f& destination, const Vector3f& velocity, Location::AltFrame alt_frame)
 {
-    // check we are in velocity control mode
+    // check we are in posvel control mode
     if (sub.guided_mode != Guided_PosVel) {
+        // catch some configuration errors by requiring a healthy rangefinder to specify the ABOVE_TERRAIN frame
+        if (alt_frame == Location::AltFrame::ABOVE_TERRAIN && !sub.rangefinder_alt_ok()) {
+            gcs().send_text(MAV_SEVERITY_WARNING, "Terrain data (rangefinder) not available");
+            return false;
+        }
+
         guided_posvel_control_start();
+
+        if (alt_frame == Location::AltFrame::ABOVE_TERRAIN) {
+            // initialize the terrain offset
+            // destination.z is the rangefinder target
+            set_posvel_frame_above_terrain(destination.z);
+        }
+    } else {
+        if (alt_frame == Location::AltFrame::ABOVE_TERRAIN) {
+            // rangefinder target may have changed
+            position_control->set_pos_offset_z_cm(position_control->get_pos_offset_z_cm() + posvel_pos_target_cm.z - destination.z);
+        } else {
+            set_posvel_frame_above_home();
+        }
     }
 
 #if AP_FENCE_ENABLED
     // reject destination if outside the fence
-    const Location dest_loc(destination, Location::AltFrame::ABOVE_ORIGIN);
+    const Location dest_loc(destination, alt_frame);
     if (!sub.fence.check_destination_within_fence(dest_loc)) {
         LOGGER_WRITE_ERROR(LogErrorSubsystem::NAVIGATION, LogErrorCode::DEST_OUTSIDE_FENCE);
         // failure is propagated to GCS with NAK
@@ -312,14 +351,9 @@ bool ModeGuided::guided_set_destination_posvel(const Vector3f& destination, cons
     posvel_pos_target_cm = destination.topostype();
     posvel_vel_target_cms = velocity;
 
-    position_control->input_pos_vel_accel_xy(posvel_pos_target_cm.xy(), posvel_vel_target_cms.xy(), Vector2f());
-    float dz = posvel_pos_target_cm.z;
-    position_control->input_pos_vel_accel_z(dz, posvel_vel_target_cms.z, 0);
-    posvel_pos_target_cm.z = dz;
-
 #if HAL_LOGGING_ENABLED
     // log target
-    sub.Log_Write_GuidedTarget(sub.guided_mode, destination, velocity);
+    sub.Log_Write_GuidedTarget(sub.guided_mode, destination, velocity, alt_frame);
 #endif
 
     return true;
@@ -634,9 +668,23 @@ void ModeGuided::guided_posvel_control_run()
 
     // send position and velocity targets to position controller
     position_control->input_pos_vel_accel_xy(posvel_pos_target_cm.xy(), posvel_vel_target_cms.xy(), Vector2f());
+#if AP_RANGEFINDER_ENABLED
+    if (posvel_frame == Location::AltFrame::ABOVE_TERRAIN) {
+        if (sub.rangefinder_alt_ok()) {
+            // surftrak: set the offset target to the current terrain altitude estimate
+            position_control->set_pos_offset_target_z_cm(sub.rangefinder_state.rangefinder_terrain_offset_cm);
+        }
+        position_control->set_pos_target_z_from_climb_rate_cm(posvel_vel_target_cms.z);
+    } else {
+        float pz = posvel_pos_target_cm.z;
+        position_control->input_pos_vel_accel_z(pz, posvel_vel_target_cms.z, 0);
+        posvel_pos_target_cm.z = pz;
+    }
+#else
     float pz = posvel_pos_target_cm.z;
     position_control->input_pos_vel_accel_z(pz, posvel_vel_target_cms.z, 0);
     posvel_pos_target_cm.z = pz;
+#endif
 
     // run position controller
     position_control->update_xy_controller();
