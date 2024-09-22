@@ -46,50 +46,49 @@ public:
 
 private:
     bool probe(uint8_t bus, uint8_t address);
-    void _measure(uint8_t sensor_number);
-    void _measure_abs(uint8_t sensor_number);
-    void _collect(uint8_t sensor_number);
-    void _collect_abs(uint8_t sensor_number);
+    void _measure();
+    void _measure_abs();
+    void _collect();
+    void _collect_abs();
     void _timer();
-    bool _read_coefficients(uint8_t sensor_number);
+    bool _read_coefficients();
     uint32_t _read_register(uint8_t cmd);
     uint32_t _read_register_abs(uint8_t cmd);
-    void _set_multiplexer(uint8_t channel);
-    float get_differential_pressure_i(uint8_t index);
-    float get_abs_pressure_i(uint8_t index);
+    float get_differential_pressure_i();
+    float get_abs_pressure_i();
     
-    uint32_t _last_sample_time_ms[NUM_PARALLEL_AIRSPEED_SENSORS];
-    uint32_t _measurement_started_ms[NUM_PARALLEL_AIRSPEED_SENSORS];
+    uint32_t _last_sample_time_ms;
+    uint32_t _measurement_started_ms;
     AP_HAL::OwnPtr<AP_HAL::I2CDevice> _dev;
     AP_HAL::OwnPtr<AP_HAL::I2CDevice> _dev_abs;
     AP_HAL::OwnPtr<AP_HAL::I2CDevice> _dev_multiplexer;
 
-    bool measuring_abs[NUM_PARALLEL_AIRSPEED_SENSORS];
+    bool measuring_abs;
 
-    float ALIN_A[NUM_PARALLEL_AIRSPEED_SENSORS];
-    float ALIN_B[NUM_PARALLEL_AIRSPEED_SENSORS];
-    float ALIN_C[NUM_PARALLEL_AIRSPEED_SENSORS];
-    float ALIN_D[NUM_PARALLEL_AIRSPEED_SENSORS];
-    float A_Es[NUM_PARALLEL_AIRSPEED_SENSORS]; 
-    float A_TC50H[NUM_PARALLEL_AIRSPEED_SENSORS];
-    float A_TC50L[NUM_PARALLEL_AIRSPEED_SENSORS];; // Abs coeffs
+    float ALIN_A;
+    float ALIN_B;
+    float ALIN_C;
+    float ALIN_D;
+    float A_Es; 
+    float A_TC50H;
+    float A_TC50L;; // Abs coeffs
 
-    float DLIN_A[NUM_PARALLEL_AIRSPEED_SENSORS];
-    float DLIN_B[NUM_PARALLEL_AIRSPEED_SENSORS];
-    float DLIN_C[NUM_PARALLEL_AIRSPEED_SENSORS];
-    float DLIN_D[NUM_PARALLEL_AIRSPEED_SENSORS];
-    float D_Es[NUM_PARALLEL_AIRSPEED_SENSORS];
-    float D_TC50H[NUM_PARALLEL_AIRSPEED_SENSORS];
-    float D_TC50L[NUM_PARALLEL_AIRSPEED_SENSORS]; // Diff coeffs
+    float DLIN_A;
+    float DLIN_B;
+    float DLIN_C;
+    float DLIN_D;
+    float D_Es;
+    float D_TC50H;
+    float D_TC50L; // Diff coeffs
 
-    float pressure_digital[NUM_PARALLEL_AIRSPEED_SENSORS];
-    float pressure_abs_L[NUM_PARALLEL_AIRSPEED_SENSORS];
-    float temp[NUM_PARALLEL_AIRSPEED_SENSORS];
+    float pressure_digital;
+    float pressure_abs_L;
+    float temp;
 
-    float diff_press_mbar[NUM_PARALLEL_AIRSPEED_SENSORS];
-    float abs_press_L_mbar[NUM_PARALLEL_AIRSPEED_SENSORS];
-    uint8_t sensor_working[NUM_PARALLEL_AIRSPEED_SENSORS];
-    // float abs_press_H_mbar[NUM_PARALLEL_AIRSPEED_SENSORS];
+    float diff_press_mbar;
+    float abs_press_L_mbar;
+    uint8_t sensor_working;
+    // float abs_press_H_mbar;
 };
 
 #endif  // AP_Airspeed_AUAV_ENABLED
