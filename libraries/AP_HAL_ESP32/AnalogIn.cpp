@@ -77,8 +77,8 @@ static const adc_atten_t atten = ADC_ATTEN_DB_12;
 AnalogSource::AnalogSource(int16_t ardupin,int16_t pin,float scaler, float initial_value, uint8_t unit) :
 
     _unit(unit),
-    _ardupin(ardupin),
     _pin(pin),
+    _ardupin(ardupin),
     _scaler(scaler),
     _value(initial_value),
     _latest_value(initial_value),

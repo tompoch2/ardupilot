@@ -67,10 +67,10 @@ public:
         scheduler(_scheduler),
         util(_util),
         opticalflow(_opticalflow),
+        flash(_flash),
 #if AP_SIM_ENABLED && CONFIG_HAL_BOARD != HAL_BOARD_SITL
         simstate(_simstate),
 #endif
-        flash(_flash),
 #if HAL_WITH_DSP
         dsp(_dsp),
 #endif
