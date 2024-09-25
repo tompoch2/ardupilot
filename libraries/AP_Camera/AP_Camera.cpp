@@ -14,6 +14,7 @@
 #include "AP_Camera_MAVLink.h"
 #include "AP_Camera_MAVLinkCamV2.h"
 #include "AP_Camera_Scripting.h"
+#include "AP_RunCam.h"
 
 const AP_Param::GroupInfo AP_Camera::var_info[] = {
 
@@ -42,8 +43,20 @@ const AP_Param::GroupInfo AP_Camera::var_info[] = {
     AP_SUBGROUPINFO(_params[1], "2", 13, AP_Camera, AP_Camera_Params),
 #endif
 
+    // @Group: 1_RC_
+    // @Path: AP_RunCam.cpp
+    AP_SUBGROUPVARPTR(_backends[0], "1_RC_", 14, AP_Camera, _backend_var_info[0]),
+
+#if AP_CAMERA_MAX_INSTANCES > 1
+    // @Group: 2_RC2_
+    // @Path: AP_RunCam.cpp
+    AP_SUBGROUPVARPTR(_backends[1], "2_RC2_", 15, AP_Camera, _backend_var_info[1]),
+#endif
+
     AP_GROUPEND
 };
+
+const AP_Param::GroupInfo *AP_Camera::_backend_var_info[AP_CAMERA_MAX_INSTANCES];
 
 extern const AP_HAL::HAL& hal;
 
@@ -237,6 +250,15 @@ void AP_Camera::init()
         // check for Scripting driver
         case CameraType::SCRIPTING:
             _backends[instance] = NEW_NOTHROW AP_Camera_Scripting(*this, _params[instance], instance);
+            break;
+#endif
+#if AP_CAMERA_RUNCAM_ENABLED
+        // check for Scripting driver
+        case CameraType::RUNCAM:
+            _backends[instance] = NEW_NOTHROW AP_RunCam(*this, _params[instance], instance);
+            _backend_var_info[instance] = AP_RunCam::var_info;
+            AP_Param::load_object_from_eeprom(_backends[instance], _backend_var_info[instance]);
+            AP_Param::invalidate_count();
             break;
 #endif
         case CameraType::NONE:
@@ -847,6 +869,13 @@ void AP_Camera::convert_params()
         // CAM_TRIGG_TYPE was set to Relay, GoPro or Mount
         cam1_type = cam_trigg_type + 1;
     }
+#if AP_CAMERA_RUNCAM_ENABLED
+    // RunCam protocol configured so set cam type to RunCam
+    AP_SerialManager *serial_manager = AP_SerialManager::get_singleton();
+    if (serial_manager && serial_manager->find_serial(AP_SerialManager::SerialProtocol_RunCam, 0)) {
+        cam1_type = uint8_t(CameraType::RUNCAM);
+    }
+#endif
     _params[0].type.set_and_save(cam1_type);
 
     // convert CAM_DURATION (in deci-seconds) to CAM1_DURATION (in seconds)
