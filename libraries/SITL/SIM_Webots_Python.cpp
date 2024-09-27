@@ -58,11 +58,16 @@ void WebotsPython::set_interface_ports(const char* address, const int port_in, c
     socket_sitl.reuseaddress();
     socket_sitl.set_blocking(false);
     
-     if (is_wsl()) {
+    /*
+    
+    if (is_wsl()) {
         _webots_address = "0.0.0.0"; // Use 0.0.0.0 in WSL
     } else {
         _webots_address = address; // Use localhost otherwise
     }
+    */
+    
+    _webots_address = address; // Use localhost otherwise
     _webots_port = port_out;
     printf("Setting Webots interface to %s:%d \n", _webots_address, _webots_port);
 }
