@@ -240,12 +240,13 @@ class WebotsArduVehicle():
         Args:
             command (tuple): tuple of motor speeds 0.0-1.0 where -1.0 is unused
         """
-
+        
         # get only the number of motors we have
         command_motors = command[:len(self._motors)]
         if -1 in command_motors:
             print(f"Warning: SITL provided {command.index(-1)} motors "
                   f"but model specifies {len(self._motors)} (I{self._instance})")
+            command_motors = [v if v != -1 else 0.0 for v in command_motors]
 
         # scale commands to -1.0-1.0 if the motors are bidirectional (ex rover wheels)
         if self._bidirectional_motors:
