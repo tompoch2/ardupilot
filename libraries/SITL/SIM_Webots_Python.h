@@ -72,7 +72,7 @@ private:
 
 
     /// @brief check for wsl env
-    bool is_wsl()
+    bool is_wsl();
 
     /// @brief receive sensor packet from Webots
     void recv_fdm(const struct sitl_input &input);
