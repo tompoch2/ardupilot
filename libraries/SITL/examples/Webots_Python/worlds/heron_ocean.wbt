@@ -48,6 +48,10 @@ Heron {
   controllerArgs [
     "--motors"
     "left_motor, right_motor"
+    "--motor-cap"
+    "10"
+    "--bidirectional-motors"
+    "true"
     "--camera"
     "camera"
     "--camera-port"
