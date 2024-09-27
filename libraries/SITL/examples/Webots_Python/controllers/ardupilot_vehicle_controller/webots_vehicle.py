@@ -155,14 +155,13 @@ class WebotsArduVehicle():
         Args:
             port (int, optional): Port to listen for SITL on. Defaults to 9002.
         """
-
         # create a local UDP socket server to listen for SITL
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # SOCK_STREAM
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind(('0.0.0.0', port))
 
         # wait for SITL to connect
-        print(f"Listening for ardupilot SITL (I{self._instance}) at 127.0.0.1:{port}")
+        print(f"Listening for ardupilot SITL (I{self._instance}) at {sitl_address}:{port}")
         self.robot.step(self._timestep) # flush print in webots console
 
         while not select.select([s], [], [], 0)[0]: # wait for socket to be readable
