@@ -59,7 +59,7 @@ void WebotsPython::set_interface_ports(const char* address, const int port_in, c
     socket_sitl.set_blocking(false);
     
      if (is_wsl()) {
-        _webots_address = "0.0.0.0"; // Use 0.0.0.0 in WSL
+        _webots_address = "172.24.107.226"; // Use 0.0.0.0 in WSL
     } else {
         _webots_address = address; // Use localhost otherwise
     }
