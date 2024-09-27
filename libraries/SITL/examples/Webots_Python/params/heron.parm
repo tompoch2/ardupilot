@@ -1,8 +1,8 @@
 FRAME_CLASS      2          # Boat
 
-SERVO1_FUNCTION  53         # Throttle Left (Boat throttle channel)
-SERVO2_FUNCTION  54         # Throttle Right (Boat throttle channel)
-SERVO3_FUNCTION  0          # Disabled (no steering required)
+SERVO1_FUNCTION  73         # Throttle Left (Boat throttle channel)
+SERVO2_FUNCTION  0          # Disabled (no steering required)
+SERVO3_FUNCTION  74         # Throttle Right (Boat throttle channel)
 SERVO4_FUNCTION  0          # Disabled (no steering required)
 
 AHRS_EKF_TYPE    10         # Use sim AHRS

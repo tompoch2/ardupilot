@@ -4,12 +4,14 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/obstacles/protos/OilBarrel.proto"
 EXTERNPROTO "../protos/Heron.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/robots/nvidia/jetbot/protos/JetBotRaspberryPiCamera.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/devices/nvidia/protos/JetsonNano.proto"
 
 WorldInfo {
 }
 Viewpoint {
-  orientation -0.2394906842094191 0.07345448821055489 0.9681160314438708 2.969401763025115
-  position 5.3515532601165035 -2.581205255834547 7.960912495940684
+  orientation 0.11417842104655657 0.09038023497047008 -0.9893405385882043 2.0878534292029074
+  position -5.301313912561586 0.8769520435623269 1.1371233590956247
 }
 TexturedBackground {
 }
@@ -38,19 +40,30 @@ DEF WATER Fluid {
   locked TRUE
 }
 Heron {
-  hidden linearVelocity_0 0 0 -4.144751515772602e-14
-  hidden angularVelocity_0 1.384378977171332e-13 1.331305414277788e-13 3.554871781810618e-17
-  translation -6.6784157308512615 -0.49028637658352825 0.4450058268441937
-  rotation -0.010053902353670902 -0.04143394110772833 -0.9990906603365604 0.5180708381397717
+  hidden linearVelocity_0 0 0 3.6785733076437055e-13
+  hidden angularVelocity_0 8.936961868228959e-13 -3.0793909374941e-13 -1.8046085461297246e-16
+  translation -6.6784157308512615 -0.49028637658352825 0.44500582684416695
+  rotation -0.010053065114515154 -0.04147340372230338 -0.9990890314008507 0.5175970204287123
   controller "ardupilot_vehicle_controller"
   controllerArgs [
     "--motors"
     "left_motor, right_motor"
+    "--camera"
+    "camera"
+    "--camera-port"
+    "5599"
     "--sitl-address"
     "172.24.107.226"
   ]
   bodySlot [
-    Camera {
+    JetsonNano {
+      translation 0.17 0.0700002 0.08
+      rotation 0 0 1 -1.5707953071795862
+    }
+    JetBotRaspberryPiCamera {
+      translation 0.32 0 0.22
+      fieldOfView 0.7
+      near 0.1
     }
     InertialUnit {
     }
@@ -63,7 +76,7 @@ Heron {
   ]
 }
 OilBarrel {
-  hidden linearVelocity_0 0 0 -4.259156747783505e-16
+  hidden linearVelocity_0 0 0 7.783035268975111e-16
   translation -5.769041604986175 5.7137363726152754 0.5595498919704248
   rotation -0.1699998685374228 -0.9047911400234424 0.39045235001513096 1.7528084979303689
   physics Physics {
@@ -80,9 +93,9 @@ OilBarrel {
   ]
 }
 OilBarrel {
-  hidden linearVelocity_0 0 0 -4.259156747783505e-16
+  hidden linearVelocity_0 0 0 7.783035268975111e-16
   translation -10.052079249302796 2.4814946123187727 0.5595498919704248
-  rotation -0.2751133038851127 -0.6601076264091587 0.6989782482895187 -2.8437220396860523
+  rotation -0.2751133038851126 -0.6601076264091589 0.6989782482895187 -2.843722039686052
   name "oil barrel(1)"
   physics Physics {
     density 100
@@ -98,7 +111,7 @@ OilBarrel {
   ]
 }
 OilBarrel {
-  hidden linearVelocity_0 0 0 6.254491025135182e-16
+  hidden linearVelocity_0 0 0 -7.631781365196398e-16
   translation -9.806804324970415 -3.2705951440882433 0.5595498919704249
   rotation 0.9914248557443196 0.045597095586811014 0.12246493492588871 1.5859460279251565
   name "oil barrel(2)"
@@ -116,7 +129,7 @@ OilBarrel {
   ]
 }
 OilBarrel {
-  hidden linearVelocity_0 0 0 -4.259156747783505e-16
+  hidden linearVelocity_0 0 0 7.783035268975111e-16
   translation -9.046348837161165 3.2463636605243056 0.5595498919704248
   rotation 0.7378366847241952 0.14393236835260417 -0.6594546989866846 -2.4506564948848384
   name "oil barrel(3)"
