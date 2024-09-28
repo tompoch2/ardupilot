@@ -409,7 +409,7 @@ AP_GPS_UBLOX::_request_next_config(void)
         break;
     case STEP_RTCM:
 #if UBLOX_RXM_RTCM_LOGGING
-        if(gps._rtcm_data == 0) {
+        if(!option_set(AP_GPS::DriverOptions::LogRTCMData)) {
             _unconfigured_messages &= ~CONFIG_RATE_RTCM;
         } else if(!_request_message_rate(CLASS_RXM, MSG_RXM_RTCM)) {
             _next_message--;
@@ -611,7 +611,7 @@ AP_GPS_UBLOX::_verify_rate(uint8_t msg_class, uint8_t msg_id, uint8_t rate) {
 #endif // UBLOX_RXM_RAW_LOGGING
 #if UBLOX_RXM_RTCM_LOGGING
         case MSG_RXM_RTCM:
-            desired_rate = gps._rtcm_data;
+            desired_rate = option_set(AP_GPS::DriverOptions::LogRTCMData) ? 1 : 0;
             config_msg_id = CONFIG_RATE_RTCM;
             break;
 #endif // UBLOX_RXM_RTCM_LOGGING
@@ -1530,7 +1530,7 @@ AP_GPS_UBLOX::_parse_gps(void)
 #endif // UBLOX_RXM_RAW_LOGGING
 
 #if UBLOX_RXM_RTCM_LOGGING
-    if (_class == CLASS_RXM && _msg_id == MSG_RXM_RTCM && gps._rtcm_data != 0) {
+    if (_class == CLASS_RXM && _msg_id == MSG_RXM_RTCM && option_set(AP_GPS::DriverOptions::LogRTCMData)) {
         log_rxm_rtcm(_buffer.rxm_rtcm);
         return false;
     }
