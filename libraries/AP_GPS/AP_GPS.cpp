@@ -1638,6 +1638,13 @@ bool AP_GPS::parse_rtcm_injection(mavlink_channel_t chan, const mavlink_gps_rtcm
             const uint32_t crc = crc_crc32(0, buf, len);
 
 #if HAL_LOGGING_ENABLED
+// @LoggerMessage: RTKR
+// @Description: RTCM parser data
+// @Field: TimeUS: microseconds since system startup
+// @Field: Chan: RTCM channel data
+// @Field: RTCMId: RTCM parser ID
+// @Field: Len: RTCM injection packet length
+// @Field: CRC: RTCM injection packet CRC
             AP::logger().WriteStreaming("RTKR", "TimeUS,Chan,RTCMId,Len,CRC", "s#---", "F----", "QBHHI",
                                         AP_HAL::micros64(),
                                         uint8_t(chan),
@@ -1663,6 +1670,13 @@ bool AP_GPS::parse_rtcm_injection(mavlink_channel_t chan, const mavlink_gps_rtcm
 
             if (buf != nullptr && len > 0) {
 #if HAL_LOGGING_ENABLED
+// @LoggerMessage: RTKT
+// @Description: RTCM parser data
+// @Field: TimeUS: microseconds since system startup
+// @Field: Chan: RTCM channel data
+// @Field: RTCMId: RTCM parser ID
+// @Field: Len: RTCM injection packet length
+// @Field: CRC: RTCM injection packet CRC
                 AP::logger().WriteStreaming("RTKT", "TimeUS,Chan,RTCMId,Len,CRC", "s#---", "F----", "QBHHI",
                                             AP_HAL::micros64(),
                                             uint8_t(chan),
