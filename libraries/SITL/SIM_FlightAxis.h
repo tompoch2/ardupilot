@@ -181,6 +181,7 @@ private:
         Rev4Servos    = (1U<<1),
         HeliDemix     = (1U<<2),
         SilenceFPS    = (1U<<3),
+        IgnoreRCIN    = (1U<<4),
     };
 
     // return true if an option is set

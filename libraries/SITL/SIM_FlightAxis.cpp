@@ -44,6 +44,7 @@ const AP_Param::GroupInfo FlightAxis::var_info[] = {
     // @Bitmask: 1: Swap first 4 and last 4 servos (for quadplane testing)
     // @Bitmask: 2: Demix heli servos and send roll/pitch/collective/yaw
     // @Bitmask: 3: Don't print frame rate stats
+    // @Bitmask: 4: Ignore RealFlight's RCIN and use UDP instead (for autotest)
     // @User: Advanced
     AP_GROUPINFO("OPTS", 1, FlightAxis, _options, uint8_t(Option::ResetPosition)),
     AP_GROUPEND
@@ -545,13 +546,15 @@ void FlightAxis::update(const struct sitl_input &input)
     rpm[1] = state.m_propRPM;
     motor_mask = 3;
 
-    /*
-      the interlink interface supports 12 input channels
-     */
-    rcin_chan_count = 12;
-    for (uint8_t i=0; i<rcin_chan_count; i++) {
-        rcin[i] = state.rcin[i];
+    // Check if we want to use RealFlight's RC inputs or the UDP RC input
+    if(!option_is_set(Option::IgnoreRCIN)) {
+        // the interlink interface supports 12 input channels
+        rcin_chan_count = 12;
+        for (uint8_t i=0; i<rcin_chan_count; i++) {
+            rcin[i] = state.rcin[i];
+        }
     }
+
 
     update_position();
     time_advance();
