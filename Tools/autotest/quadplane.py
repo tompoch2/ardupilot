@@ -703,12 +703,21 @@ class AutoTestQuadPlane(vehicle_test_suite.TestSuite):
         return "MANUAL"
 
     def disabled_tests(self):
-        return {
+        tests = {
             "FRSkyPassThrough": "Currently failing",
             "CPUFailsafe": "servo channel values not scaled like ArduPlane",
             "GyroFFT": "flapping test",
             "ConfigErrorLoop": "failing because RC values not settable",
         }
+        for test in self.tests():
+            name = ""
+            if isinstance(test, Test):
+                name = test.name
+            else:
+                name = test.__name__
+            if name.lower().startswith("realflight"):
+                tests[name] = "needs RealFlight"
+        return tests
 
     def BootInAUTO(self):
         '''Test behaviour when booting in auto'''
@@ -1858,6 +1867,46 @@ class AutoTestQuadPlane(vehicle_test_suite.TestSuite):
 
         self.fly_home_land_and_disarm()
 
+    def RealFlightTitanHover(self):
+        '''Test the RealFlight Titan Cobra'''
+        frame = "flightaxis"
+        if self.realflight_address is not None:
+            frame += f":{self.realflight_address}"
+        self.customise_SITL_commandline(
+            [
+                "--home", "40.0594626,-88.5513292,206.0,0",
+            ],
+            frame,
+            wipe=True,
+            defaults_filepath="Tools/autotest/default_params/realflight-titan-cobra.parm"
+        )
+        self.wait_ready_to_arm()
+        self.change_mode("QLOITER")
+        self.arm_vehicle()
+        self.set_rc(3, 2000)
+        self.wait_altitude(8, 12, relative=True)
+        self.set_rc(3, 1500)
+        stick_deflections = [
+            (2000, 1500, "roll right"),
+            (1500, 1500, "center"),
+            (1000, 1500, "roll left"),
+            (1500, 1500, "center"),
+            (1500, 2000, "pitch forward"),
+            (1500, 1500, "center"),
+            (1500, 1000, "pitch back"),
+            (1500, 1500, "center"),
+        ]
+        n_iterations = 10
+        for i in range(n_iterations):
+            print(f"Control input cycle: {i+1}/{n_iterations}")
+            for roll, pitch, msg in stick_deflections:
+                print(f"{msg}")
+                self.set_rc(1, roll)
+                self.set_rc(2, pitch)
+                self.delay_sim_time(0.5)
+        self.change_mode("QLAND")
+        self.wait_disarmed(timeout=120)
+
     def tests(self):
         '''return list of all tests'''
 
@@ -1906,5 +1955,6 @@ class AutoTestQuadPlane(vehicle_test_suite.TestSuite):
             self.DCMClimbRate,
             self.RTL_AUTOLAND_1,  # as in fly-home then go to landing sequence
             self.RTL_AUTOLAND_1_FROM_GUIDED,  # as in fly-home then go to landing sequence
+            self.RealFlightTitanHover,
         ])
         return ret
