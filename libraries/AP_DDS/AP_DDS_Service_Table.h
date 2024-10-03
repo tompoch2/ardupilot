@@ -2,7 +2,8 @@
 
 enum class ServiceIndex: uint8_t {
     ARMING_MOTORS,
-    MODE_SWITCH
+    MODE_SWITCH,
+    SET_PARAMETERS
 };
 
 static inline constexpr uint8_t to_underlying(const ServiceIndex index)
@@ -38,4 +39,14 @@ constexpr struct AP_DDS_Client::Service_table AP_DDS_Client::services[] = {
         .request_topic_name = "rq/ap/mode_switchRequest",
         .reply_topic_name = "rr/ap/mode_switchReply",
     },
+    {
+        .req_id = to_underlying(ServiceIndex::SET_PARAMETERS),
+        .rep_id = to_underlying(ServiceIndex::SET_PARAMETERS),
+        .service_rr = Service_rr::Replier,
+        .service_name = "rs/ap/set_parametersService",
+        .request_type = "rcl_interfaces::srv::dds_::SetParameters_Request_",
+        .reply_type = "rcl_interfaces::srv::dds_::SetParameters_Response_",
+        .request_topic_name = "rq/ap/set_parametersRequest",
+        .reply_topic_name = "rr/ap/set_parametersReply",
+    }
 };
