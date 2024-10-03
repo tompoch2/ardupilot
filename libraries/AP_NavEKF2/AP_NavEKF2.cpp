@@ -1,6 +1,9 @@
-#include <AP_HAL/AP_HAL.h>
+#include "AP_NavEKF2.h"
 
 #include "AP_NavEKF2_core.h"
+
+#include <AP_DAL/AP_DAL.h>
+#include <AP_HAL/AP_HAL.h>
 #include <GCS_MAVLink/GCS.h>
 #include <AP_Logger/AP_Logger.h>
 #include <AP_Vehicle/AP_Vehicle_Type.h>
@@ -1096,6 +1099,10 @@ bool NavEKF2::getOriginLLH(Location &loc) const
     if (!core) {
         return false;
     }
+    if (common_origin_valid) {
+        loc = common_EKF_origin;
+        return true;
+    }
     return core[primary].getOriginLLH(loc);
 }
 
@@ -1110,11 +1117,9 @@ bool NavEKF2::setOriginLLH(const Location &loc)
     if (!core) {
         return false;
     }
-    if (_fusionModeGPS != 3 || common_origin_valid) {
-        // we don't allow setting of the EKF origin if using GPS
-        // or if the EKF origin has already been set.
-        // This is to prevent accidental setting of EKF origin with an
-        // invalid position or height or causing upsets from a shifting origin.
+    if (common_origin_valid) {
+        // we don't allow setting of the EKF origin if the EKF origin
+        // has already been set.
         GCS_SEND_TEXT(MAV_SEVERITY_WARNING, "EKF2 refusing set origin");
         return false;
     }
