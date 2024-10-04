@@ -197,7 +197,7 @@ DMA_NOSHARE SPI1* SPI4* TIM5* TIM3* TIM2* TIM15*
 # has an integreted mag, but still probe the i2c bus for all possible
 # external compass types
 define HAL_PROBE_EXTERNAL_I2C_COMPASSES
-COMPASS IST8310 I2C:0:0x0E false ROTATION_PITCH_180
+COMPASS IST8310 I2C:0:0x0E false ROTATION_YAW_90
 define HAL_COMPASS_AUTO_ROT_DEFAULT 2
 define ALLOW_ARM_NO_COMPASS
 
@@ -207,7 +207,7 @@ IMU Invensensev3 SPI:icm42688 ROTATION_YAW_180
 IMU Invensensev3 SPI:iim42652 ROTATION_YAW_180
 define HAL_DEFAULT_INS_FAST_SAMPLE 1
 
-# DPS310 integrated on I2C1 bus, BMP280 integrated on SPI1 bus.
+# DPS310 integrated on SPI1 bus
 BARO ICP201XX I2C:0:0x63
 BARO DPS310 SPI:dps310
 
