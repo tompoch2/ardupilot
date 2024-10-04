@@ -3,7 +3,8 @@
 enum class ServiceIndex: uint8_t {
     ARMING_MOTORS,
     MODE_SWITCH,
-    SET_PARAMETERS
+    SET_PARAMETERS,
+    GET_PARAMETERS
 };
 
 static inline constexpr uint8_t to_underlying(const ServiceIndex index)
@@ -48,5 +49,15 @@ constexpr struct AP_DDS_Client::Service_table AP_DDS_Client::services[] = {
         .reply_type = "rcl_interfaces::srv::dds_::SetParameters_Response_",
         .request_topic_name = "rq/ap/set_parametersRequest",
         .reply_topic_name = "rr/ap/set_parametersReply",
-    }
+    },
+    {
+        .req_id = to_underlying(ServiceIndex::GET_PARAMETERS),
+        .rep_id = to_underlying(ServiceIndex::GET_PARAMETERS),
+        .service_rr = Service_rr::Replier,
+        .service_name = "rs/ap/get_parameterService",
+        .request_type = "rcl_interfaces::srv::dds_::GetParameters_Request_",
+        .reply_type = "rcl_interfaces::srv::dds_::GetParameters_Response_",
+        .request_topic_name = "rq/ap/get_parametersRequest",
+        .reply_topic_name = "rr/ap/get_parametersReply",
+    },
 };

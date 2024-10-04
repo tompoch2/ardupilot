@@ -20,6 +20,7 @@
 #include "ardupilot_msgs/srv/ModeSwitch.h"
 
 #include "rcl_interfaces/srv/SetParameters.h"
+#include "rcl_interfaces/srv/GetParameters.h"
 #include "rcl_interfaces/msg/Parameter.h"
 #include "rcl_interfaces/msg/SetParametersResult.h"
 #include "rcl_interfaces/msg/ParameterValue.h"
@@ -829,6 +830,80 @@ void AP_DDS_Client::on_request(uxrSession* uxr_session, uxrObjectId object_id, u
             successful_params &= set_parameter_response.results[i].successful;
         }
         GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s Set Parameters Request : %s", msg_prefix, successful_params ? "SUCCESSFUL" : "ONE OR MORE PARAMS FAILED" );
+        break;
+    }
+    case services[to_underlying(ServiceIndex::GET_PARAMETERS)].rep_id: {
+        rcl_interfaces_srv_GetParameters_Request get_parameters_request;
+        rcl_interfaces_srv_GetParameters_Response get_parameters_response;
+        const bool deserialize_success = rcl_interfaces_srv_GetParameters_Request_deserialize_topic(ub, &get_parameters_request);
+        if (deserialize_success == false) {
+            break;
+        }
+
+        if (get_parameters_request.names_size > 8U) {
+            break;
+        }
+
+        bool successful_read = true;
+        get_parameters_response.values_size = get_parameters_request.names_size;
+        for (size_t i = 0; i < get_parameters_request.names_size; i++) {
+            enum ap_var_type var_type;
+
+            AP_Param *vp;
+            char param_key[AP_MAX_NAME_SIZE+1];
+            strncpy(param_key, (char *)get_parameters_request.names[i], AP_MAX_NAME_SIZE);
+            param_key[AP_MAX_NAME_SIZE] = 0;
+
+            vp = AP_Param::find(param_key, &var_type);
+            if (vp == nullptr) {
+                get_parameters_response.values[i].type = PARAMETER_NOT_SET;
+                successful_read &= false;
+                continue;
+            }
+
+            float param_value = vp->cast_to_float(var_type);
+
+            switch (var_type) {
+            case AP_PARAM_INT8:
+            case AP_PARAM_INT16:
+            case AP_PARAM_INT32: {
+                get_parameters_response.values[i].type = PARAMETER_INTEGER;
+                get_parameters_response.values[i].integer_value = int(param_value);
+                successful_read &= true;
+                break;
+            }
+            case AP_PARAM_FLOAT: {
+                get_parameters_response.values[i].type = PARAMETER_DOUBLE;
+                get_parameters_response.values[i].double_value = double(param_value);
+                successful_read &= true;
+                break;
+            }
+            default: {
+                get_parameters_response.values[i].type = PARAMETER_NOT_SET;
+                successful_read &= false;
+                break;
+            }
+            }
+        }
+
+        const uxrObjectId replier_id = {
+            .id = services[to_underlying(ServiceIndex::GET_PARAMETERS)].rep_id,
+            .type = UXR_REPLIER_ID
+        };
+
+        uint32_t reply_size = rcl_interfaces_srv_GetParameters_Response_size_of_topic(&get_parameters_response, 0U);
+        uint8_t reply_buffer[reply_size] {};
+        ucdrBuffer reply_ub;
+
+        ucdr_init_buffer(&reply_ub, reply_buffer, reply_size);
+        const bool serialize_success = rcl_interfaces_srv_GetParameters_Response_serialize_topic(&reply_ub, &get_parameters_response);
+        if (serialize_success == false) {
+            break;
+        }
+
+        uxr_buffer_reply(uxr_session, reliable_out, replier_id, sample_id, reply_buffer, ucdr_buffer_length(&reply_ub));
+
+        GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s Get Parameters Request : %s", msg_prefix, successful_read ? "SUCCESSFUL" : "ONE OR MORE PARAM NOT FOUND");
         break;
     }
     }
