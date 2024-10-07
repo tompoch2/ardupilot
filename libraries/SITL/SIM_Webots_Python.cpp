@@ -48,7 +48,6 @@ void WebotsPython::set_interface_ports(const char* address, const int port_in, c
     // try to bind to a specific port so that if we restart ArduPilot
     // Webots keeps sending us packets. Not strictly necessary but
     // useful for debugging
-
     if (!socket_sitl.bind("0.0.0.0", port_in)) {
         fprintf(stderr, "SITL: socket in bind failed on sim in : %d  - %s\n", port_in, strerror(errno));
         fprintf(stderr, "Aborting launch...\n");
@@ -57,16 +56,6 @@ void WebotsPython::set_interface_ports(const char* address, const int port_in, c
     printf("Bind %s:%d for SITL in\n", "127.0.0.1", port_in);
     socket_sitl.reuseaddress();
     socket_sitl.set_blocking(false);
-    
-    /*
-    
-    if (is_wsl()) {
-        _webots_address = "0.0.0.0"; // Use 0.0.0.0 in WSL
-    } else {
-        _webots_address = address; // Use localhost otherwise
-    }
-    */
-    
     _webots_address = address; // Use localhost otherwise
     _webots_port = port_out;
     printf("Setting Webots interface to %s:%d \n", _webots_address, _webots_port);
@@ -139,21 +128,6 @@ void WebotsPython::recv_fdm(const struct sitl_input &input)
     }
     last_timestamp = pkt.timestamp;
 
-}
-
-bool WebotsPython::is_wsl(){
-    // Get the release version string
-    FILE* file = popen("uname -r", "r");
-    if (!file) return false;
-
-    char buffer[128];
-    if (fgets(buffer, sizeof(buffer), file) != NULL) {
-        pclose(file);
-        return strstr(buffer, "WSL2") != nullptr; // Check for WSL2
-    }
-    
-    pclose(file);
-    return false; // Not WSL
 }
 
 /*

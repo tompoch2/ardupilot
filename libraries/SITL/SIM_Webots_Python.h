@@ -28,10 +28,6 @@
 
 #include "SIM_Aircraft.h"
 #include <AP_HAL/utility/Socket_native.h>
-
-
-
-
 namespace SITL {
 
 /*
@@ -69,10 +65,6 @@ private:
       double velocity_xyz[3];
       double position_xyz[3];
     };
-
-
-    /// @brief check for wsl env
-    bool is_wsl();
 
     /// @brief receive sensor packet from Webots
     void recv_fdm(const struct sitl_input &input);

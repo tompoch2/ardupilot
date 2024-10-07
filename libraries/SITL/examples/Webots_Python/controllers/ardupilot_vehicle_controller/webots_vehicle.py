@@ -240,7 +240,6 @@ class WebotsArduVehicle():
         Args:
             command (tuple): tuple of motor speeds 0.0-1.0 where -1.0 is unused
         """
-        
         # get only the number of motors we have
         command_motors = command[:len(self._motors)]
         if -1 in command_motors:
