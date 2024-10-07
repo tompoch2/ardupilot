@@ -182,12 +182,6 @@ public:
     // altitude fence
     float get_avoidance_adjusted_climbrate(float target_rate);
 
-    const Vector3f& get_vel_desired_cms() {
-        // note that position control isn't used in every mode, so
-        // this may return bogus data:
-        return pos_control->get_vel_desired_cms();
-    }
-
     // send output to the motors, can be overridden by subclasses
     virtual void output_to_motors();
 
@@ -645,11 +639,16 @@ private:
     void loiter_to_alt_run();
     void nav_attitude_time_run();
 
+    // return the Location portion of a command.  If the command's lat and lon and/or alt are zero the default_loc's lat,lon and/or alt are returned instead
     Location loc_from_cmd(const AP_Mission::Mission_Command& cmd, const Location& default_loc) const;
 
     SubMode _mode = SubMode::TAKEOFF;   // controls which auto controller is run
 
     bool shift_alt_to_current_alt(Location& target_loc) const;
+
+    // subtract position controller offsets from target location
+    // should be used when the location will be used as a target for the position controller
+    void subtract_pos_offsets(Location& target_loc) const;
 
     void do_takeoff(const AP_Mission::Mission_Command& cmd);
     void do_nav_wp(const AP_Mission::Mission_Command& cmd);
