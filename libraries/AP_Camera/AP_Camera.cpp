@@ -6,6 +6,7 @@
 #include <AP_Math/AP_Math.h>
 #include <AP_HAL/AP_HAL.h>
 #include <SRV_Channel/SRV_Channel.h>
+#include <AP_Vehicle/AP_Vehicle.h>
 #include "AP_Camera_Backend.h"
 #include "AP_Camera_Servo.h"
 #include "AP_Camera_Relay.h"
@@ -852,7 +853,7 @@ void AP_Camera::convert_params()
 {
     // exit immediately if CAM1_TYPE has already been configured
     if (_params[0].type.configured()) {
-        return;
+        //return;
     }
 
     // PARAMETER_CONVERSION - Added: Feb-2023 ahead of 4.4 release
@@ -870,6 +871,22 @@ void AP_Camera::convert_params()
         cam1_type = cam_trigg_type + 1;
     }
 #if AP_CAMERA_RUNCAM_ENABLED
+    // find vehicle's top level key
+    uint16_t k_param_vehicle_key;
+    if (!AP_Param::find_top_level_key_by_pointer(AP::vehicle(), k_param_vehicle_key)) {
+        return;
+    }
+
+    const AP_Param::ConversionInfo rc_type_info = {k_param_vehicle_key, 1, AP_PARAM_INT8, "CAM_RC_TYPE"};
+    AP_Int8 rc_type_old;
+    const bool found_rc_type = AP_Param::find_old_parameter(&rc_type_info, &rc_type_old);
+
+    if (found_rc_type && rc_type_old.get() > 0) {
+        _backends[0] = NEW_NOTHROW AP_RunCam(*this, _params[0], 0);
+        _backend_var_info[0] = AP_RunCam::var_info;
+        AP_Param::convert_class(k_param_vehicle_key, &_backends[0], _backend_var_info[0], 1, false);
+    }
+
     // RunCam protocol configured so set cam type to RunCam
     AP_SerialManager *serial_manager = AP_SerialManager::get_singleton();
     if (serial_manager && serial_manager->find_serial(AP_SerialManager::SerialProtocol_RunCam, 0)) {
