@@ -18,7 +18,7 @@
 
 #include "SIM_FlightAxis.h"
 
-#if HAL_SIM_FLIGHTAXIS_ENABLED
+#if AP_SIM_FLIGHTAXIS_ENABLED
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -35,6 +35,20 @@
 extern const AP_HAL::HAL& hal;
 
 using namespace SITL;
+
+const AP_Param::GroupInfo FlightAxis::var_info[] = {
+    // @Param: OPTS
+    // @DisplayName: FlightAxis options
+    // @Description: Bitmask of FlightAxis options
+    // @Bitmask: 0: Reset position on startup
+    // @Bitmask: 1: Swap first 4 and last 4 servos (for quadplane testing)
+    // @Bitmask: 2: Demix heli servos and send roll/pitch/collective/yaw
+    // @Bitmask: 3: Don't print frame rate stats
+    // @Bitmask: 4: Ignore RealFlight's RCIN and use UDP instead (for autotest)
+    // @User: Advanced
+    AP_GROUPINFO("OPTS", 1, FlightAxis, _options, uint8_t(Option::ResetPosition)),
+    AP_GROUPEND
+};
 
 /*
   we use a thread for socket creation to reduce the impact of socket
@@ -108,10 +122,18 @@ static double timestamp_sec()
 FlightAxis::FlightAxis(const char *frame_str) :
     Aircraft(frame_str)
 {
+    AP::sitl()->models.flightaxis_ptr = this;
+    AP_Param::setup_object_defaults(this, var_info);
+
     use_time_sync = false;
     rate_hz = 250 / target_speedup;
-    heli_demix = strstr(frame_str, "helidemix") != nullptr;
-    rev4_servos = strstr(frame_str, "rev4") != nullptr;
+    if(strstr(frame_str, "helidemix") != nullptr) {
+        _options.set(_options | (int8_t)Option::HeliDemix);
+    }
+    if(strstr(frame_str, "rev4") != nullptr) {
+        _options.set(_options | (int8_t)Option::Rev4Servos);
+    }
+
     const char *colon = strchr(frame_str, ':');
     if (colon) {
         controller_ip = colon+1;
@@ -284,6 +306,15 @@ void FlightAxis::exchange_data(const struct sitl_input &input)
 </soap:Body>
 </soap:Envelope>)");
         soap_request_end(1000);
+        if(option_is_set(Option::ResetPosition)) {
+            soap_request_start("ResetAircraft", R"(<?xml version='1.0' encoding='UTF-8'?>
+<soap:Envelope xmlns:soap='http://schemas.xmlsoap.org/soap/envelope/' xmlns:xsd='http://www.w3.org/2001/XMLSchema' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'>
+<soap:Body>
+<ResetAircraft><a>1</a><b>2</b></ResetAircraft>
+</soap:Body>
+</soap:Envelope>)");
+            soap_request_end(1000);
+        }
         soap_request_start("InjectUAVControllerInterface", R"(<?xml version='1.0' encoding='UTF-8'?>
 <soap:Envelope xmlns:soap='http://schemas.xmlsoap.org/soap/envelope/' xmlns:xsd='http://www.w3.org/2001/XMLSchema' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'>
 <soap:Body>
@@ -301,7 +332,7 @@ void FlightAxis::exchange_data(const struct sitl_input &input)
         scaled_servos[i] = (input.servos[i] - 1000) / 1000.0f;
     }
 
-    if (rev4_servos) {
+    if (option_is_set(Option::Rev4Servos)) {
         // swap first 4 and last 4 servos, for quadplane testing
         float saved[4];
         memcpy(saved, &scaled_servos[0], sizeof(saved));
@@ -309,7 +340,7 @@ void FlightAxis::exchange_data(const struct sitl_input &input)
         memcpy(&scaled_servos[4], saved, sizeof(saved));
     }
 
-    if (heli_demix) {
+    if (option_is_set(Option::HeliDemix)) {
         // FlightAxis expects "roll/pitch/collective/yaw" input
         float swash1 = scaled_servos[0];
         float swash2 = scaled_servos[1];
@@ -515,13 +546,15 @@ void FlightAxis::update(const struct sitl_input &input)
     rpm[1] = state.m_propRPM;
     motor_mask = 3;
 
-    /*
-      the interlink interface supports 12 input channels
-     */
-    rcin_chan_count = 12;
-    for (uint8_t i=0; i<rcin_chan_count; i++) {
-        rcin[i] = state.rcin[i];
+    // Check if we want to use RealFlight's RC inputs or the UDP RC input
+    if(!option_is_set(Option::IgnoreRCIN)) {
+        // the interlink interface supports 12 input channels
+        rcin_chan_count = 12;
+        for (uint8_t i=0; i<rcin_chan_count; i++) {
+            rcin[i] = state.rcin[i];
+        }
     }
+
 
     update_position();
     time_advance();
@@ -574,8 +607,10 @@ void FlightAxis::report_FPS(void)
             uint64_t frames = socket_frame_counter - last_socket_frame_counter;
             last_socket_frame_counter = socket_frame_counter;
             double dt = state.m_currentPhysicsTime_SEC - last_frame_count_s;
-            printf("%.2f/%.2f FPS avg=%.2f glitches=%u\n",
-                   frames / dt, 1000 / dt, 1.0/average_frame_time_s, unsigned(glitch_count));
+            if(!option_is_set(Option::SilenceFPS)) {
+                printf("%.2f/%.2f FPS avg=%.2f glitches=%u\n",
+                    frames / dt, 1000 / dt, 1.0/average_frame_time_s, unsigned(glitch_count));
+            }
         } else {
             printf("Initial position %f %f %f\n", position.x, position.y, position.z);
         }
@@ -615,4 +650,4 @@ void FlightAxis::socket_creator(void)
     }
 }
 
-#endif // HAL_SIM_FLIGHTAXIS_ENABLED
+#endif // AP_SIM_FLIGHTAXIS_ENABLED
