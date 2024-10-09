@@ -359,7 +359,6 @@ private:
         uint8_t pre_arm_check;                  // true if all pre-arm checks (rc, accel calibration, gps lock) have been performed
         uint8_t auto_armed;                     // stops auto missions from beginning until throttle is raised
         uint8_t land_complete;                  // true if we have detected a landing
-        uint8_t new_radio_frame;                // Set true if we have new PWM data to act on from the Radio
         uint8_t compass_mot;                    // true if we are currently performing compassmot calibration
         uint8_t motor_test;                     // true if we are currently performing the motors test
         uint8_t initialised;                    // true once the init_ardupilot function has completed.  Extended status to GCS is not sent until this completes

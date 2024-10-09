@@ -701,7 +701,7 @@ uint32_t Copter::ap_value() const
         AUTO_ARMED = (1U << 5),                 // stops auto missions from beginning until throttle is raised
         LOGGING_STARTED = (1U << 6),            // true if logging has started
         LAND_COMPLETE = (1U << 7),              // true if we have detected a landing
-        NEW_RADIO_FRAME = (1U << 8),            // Set true if we have new PWM data to act on from the Radio
+        // NEW_RADIO_FRAME = (1U << 8),            // Set true if we have new PWM data to act on from the Radio
         // USB_CONNECTED_UNUSED = (1U << 9),    // UNUSED
         // RC_RECEIVER_PRESENT_UNUSED = (1U << 10), // UNUSED
         COMPASS_MOT = (1U << 11),               // true if we are currently performing compassmot calibration
@@ -729,7 +729,6 @@ uint32_t Copter::ap_value() const
     if (ap.auto_armed)                { ret |= uint32_t(AP_Bit::AUTO_ARMED); }
     if (logger.logging_started())     { ret |= uint32_t(AP_Bit::LOGGING_STARTED); }
     if (ap.land_complete)             { ret |= uint32_t(AP_Bit::LAND_COMPLETE); }
-    if (ap.new_radio_frame)           { ret |= uint32_t(AP_Bit::NEW_RADIO_FRAME); }
     if (ap.compass_mot)               { ret |= uint32_t(AP_Bit::COMPASS_MOT); }
     if (ap.motor_test)                { ret |= uint32_t(AP_Bit::MOTOR_TEST); }
     if (ap.initialised)               { ret |= uint32_t(AP_Bit::INITIALISED); }
@@ -814,13 +813,15 @@ void Copter::update_simple_mode(void)
 {
     float rollx, pitchx;
 
-    // exit immediately if no new radio frame or not in simple mode
-    if (simple_mode == SimpleMode::NONE || !ap.new_radio_frame) {
+    // exit immediately if not in simple mode:
+    if (simple_mode == SimpleMode::NONE) {
         return;
     }
 
-    // mark radio frame as consumed
-    ap.new_radio_frame = false;
+    // exit immediately if RC input is invalid:
+    if (rc().has_valid_input()) {
+        return;
+    }
 
     if (simple_mode == SimpleMode::SIMPLE) {
         // rotate roll, pitch input by -initial simple heading (i.e. north facing)
