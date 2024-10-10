@@ -90,7 +90,6 @@ bool AP_Airspeed_AUAV::init()
     return false;
 
 found_sensor:
-    _dev_multiplexer->set_device_type(uint8_t(DevType::MULTIPLEXER));
     _dev->set_device_type(uint8_t(DevType::AUAV));
     set_bus_id(_dev->get_bus_id());
 
@@ -302,8 +301,6 @@ void AP_Airspeed_AUAV::_timer()
         _measure();
     }
 
-    float diff_pressure_i = get_differential_pressure_i();
-    float abs_pressure_i = get_abs_pressure_i();
     if ((AP_HAL::millis() - _measurement_started_ms) > 10) {
         _collect();
         _collect_abs();

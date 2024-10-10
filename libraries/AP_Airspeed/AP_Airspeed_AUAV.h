@@ -61,7 +61,6 @@ private:
     uint32_t _measurement_started_ms;
     AP_HAL::OwnPtr<AP_HAL::I2CDevice> _dev;
     AP_HAL::OwnPtr<AP_HAL::I2CDevice> _dev_abs;
-    AP_HAL::OwnPtr<AP_HAL::I2CDevice> _dev_multiplexer;
 
     bool measuring_abs;
 
@@ -84,11 +83,6 @@ private:
     float pressure_digital;
     float pressure_abs_L;
     float temp;
-
-    float diff_press_mbar;
-    float abs_press_L_mbar;
-    uint8_t sensor_working;
-    // float abs_press_H_mbar;
 };
 
 #endif  // AP_Airspeed_AUAV_ENABLED
