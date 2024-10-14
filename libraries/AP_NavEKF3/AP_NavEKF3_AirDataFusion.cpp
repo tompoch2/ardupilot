@@ -20,25 +20,19 @@
 void NavEKF3_core::FuseAirspeed()
 {
     // declarations
-    ftype vn;
-    ftype ve;
-    ftype vd;
-    ftype vwn;
-    ftype vwe;
     ftype SH_TAS[3];
     ftype SK_TAS[2];
     Vector24 H_TAS = {};
-    ftype VtasPred;
 
     // copy required states to local variable names
-    vn = stateStruct.velocity.x;
-    ve = stateStruct.velocity.y;
-    vd = stateStruct.velocity.z;
-    vwn = stateStruct.wind_vel.x;
-    vwe = stateStruct.wind_vel.y;
+    const ftype vn = stateStruct.velocity.x;
+    const ftype ve = stateStruct.velocity.y;
+    const ftype vd = stateStruct.velocity.z;
+    const ftype vwn = stateStruct.wind_vel.x;
+    const ftype vwe = stateStruct.wind_vel.y;
 
     // calculate the predicted airspeed
-    VtasPred = norm((ve - vwe) , (vn - vwn) , vd);
+    const ftype VtasPred = norm((ve - vwe) , (vn - vwn) , vd);
     // perform fusion of True Airspeed measurement
     if (VtasPred > 1.0f)
     {
@@ -280,15 +274,6 @@ void NavEKF3_core::SelectBetaDragFusion()
 void NavEKF3_core::FuseSideslip()
 {
     // declarations
-    ftype q0;
-    ftype q1;
-    ftype q2;
-    ftype q3;
-    ftype vn;
-    ftype ve;
-    ftype vd;
-    ftype vwn;
-    ftype vwe;
     const ftype R_BETA = 0.03f; // assume a sideslip angle RMS of ~10 deg
     Vector13 SH_BETA;
     Vector8 SK_BETA;
@@ -296,15 +281,15 @@ void NavEKF3_core::FuseSideslip()
     Vector24 H_BETA;
 
     // copy required states to local variable names
-    q0 = stateStruct.quat[0];
-    q1 = stateStruct.quat[1];
-    q2 = stateStruct.quat[2];
-    q3 = stateStruct.quat[3];
-    vn = stateStruct.velocity.x;
-    ve = stateStruct.velocity.y;
-    vd = stateStruct.velocity.z;
-    vwn = stateStruct.wind_vel.x;
-    vwe = stateStruct.wind_vel.y;
+    const ftype q0 = stateStruct.quat[0];
+    const ftype q1 = stateStruct.quat[1];
+    const ftype q2 = stateStruct.quat[2];
+    const ftype q3 = stateStruct.quat[3];
+    const ftype vn = stateStruct.velocity.x;
+    const ftype ve = stateStruct.velocity.y;
+    const ftype vd = stateStruct.velocity.z;
+    const ftype vwn = stateStruct.wind_vel.x;
+    const ftype vwe = stateStruct.wind_vel.y;
 
     // calculate predicted wind relative velocity in NED
     vel_rel_wind.x = vn - vwn;
@@ -760,3 +745,62 @@ void NavEKF3_core::FuseDragForces()
 *                   MISC FUNCTIONS                      *
 ********************************************************/
 
+#if EK3_FEATURE_SETWIND
+bool NavEKF3_core::setWind(float speed, float speed_accuracy, float direction, float direction_accuracy)
+{
+    // reset the corresponding covariances
+    zeroRows(P,22,23);
+    zeroCols(P,22,23);
+
+    // set the wind state variances
+    if (!isnan(speed_accuracy) && is_positive(speed_accuracy)) {
+        if (!isnan(direction_accuracy) && is_positive(direction_accuracy)) {
+            const ftype spdVar = sq(speed_accuracy);
+            const ftype dirnVar = sq(radians(direction_accuracy));
+
+            const ftype PS0 = cosf(radians(direction));
+            const ftype PS1 = sq(PS0);
+            const ftype PS2 = sinf(radians(direction));
+            const ftype PS3 = sq(PS2);
+            const ftype PS4 = dirnVar*sq(speed);
+            const ftype PS5 = PS0*PS2*(-PS4 + spdVar);
+
+            P[22][22] = PS1*spdVar + PS3*PS4;
+            P[23][22] = PS5;
+            P[22][23] = PS5;
+            P[23][23] = PS1*PS4 + PS3*spdVar;
+        } else {
+            P[22][22] = P[23][23] = sq(speed_accuracy);
+        }
+    } else {
+        P[22][22] = P[23][23] = sq(WIND_SPD_UNCERTAINTY);
+    }
+
+    // reset the NE wind velocity states to the measurement
+    Vector2F wind_vel_prev = stateStruct.wind_vel;
+    stateStruct.wind_vel.x = -speed * cosF(radians(direction));
+    stateStruct.wind_vel.y = -speed * sinF(radians(direction));
+
+    // update the vehicle velocity states to be consistent with the new wind estimate if dead reckoning
+    if ((imuSampleTime_ms - lastGpsPosPassTime_ms) > frontend->deadReckonDeclare_ms) {
+        velResetNE = stateStruct.wind_vel - wind_vel_prev;
+        stateStruct.velocity.xy() += velResetNE;
+
+        // update the output buffer
+        for (uint8_t i=0; i<imu_buffer_length; i++) {
+            storedOutput[i].velocity.xy() = stateStruct.velocity.xy();
+        }
+        outputDataNew.velocity.xy() = stateStruct.velocity.xy();
+        outputDataDelayed.velocity.xy() = stateStruct.velocity.xy();
+
+        // store the time of the reset
+        lastVelReset_ms = imuSampleTime_ms;
+    }
+
+    // store the time of the reset
+    lastExtWindVelSet_ms = imuSampleTime_ms;
+
+    return true;
+
+}
+#endif // EK3_FEATURE_SETWIND
