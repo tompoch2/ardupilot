@@ -40,6 +40,8 @@ bool ModeAutorotate::init(bool ignore_checks)
      // Set all initial flags to on
     _flags.entry_init = false;
     _flags.glide_init = false;
+    _flags.flare_init = false;
+    _flags.touch_down_init = false;
     _flags.landed_init = false;
 
     // Setting default starting switches
@@ -57,11 +59,14 @@ bool ModeAutorotate::init(bool ignore_checks)
 void ModeAutorotate::run()
 {
     // Current time
-    uint32_t now = millis(); //milliseconds
+    const uint32_t now = millis();
 
     // Set dt in library
-    float const last_loop_time_s = AP::scheduler().get_last_loop_time_s();
+    const float last_loop_time_s = AP::scheduler().get_last_loop_time_s();
     g2.arot.set_dt(last_loop_time_s);
+
+    // Update the height above ground measurement in the autorotation lib
+    g2.arot.update_hagl();
 
     //----------------------------------------------------------------
     //                  State machine logic
@@ -70,9 +75,21 @@ void ModeAutorotate::run()
     // More urgent phases (the ones closer to the ground) take precedence later in the if statements. Init
     // flags are used to prevent flight phase regression
 
-    if (!_flags.glide_init && ((now - _entry_time_start_ms) > g2.arot.entry_time_ms)) {
+    if (!_flags.glide_init && !g2.arot.below_flare_height() && ((now - _entry_time_start_ms) > g2.arot.entry_time_ms)) {
         // Flight phase can be progressed to steady state glide
         phase_switch = Autorotation_Phase::SS_GLIDE;
+    }
+
+    // Check if we are between the flare start height and the touchdown height
+    if (!_flags.flare_init && g2.arot.below_flare_height() && !g2.arot.should_begin_touchdown()) {
+        phase_switch = Autorotation_Phase::FLARE;
+    }
+
+    // TODO: hover entry init
+
+    // Begin touch down if within touch down time
+    if (!_flags.touch_down_init && g2.arot.should_begin_touchdown()) {
+        phase_switch = Autorotation_Phase::TOUCH_DOWN;
     }
 
     // Check if we believe we have landed. We need the landed state to zero all
@@ -117,8 +134,24 @@ void ModeAutorotate::run()
         }
 
         case Autorotation_Phase::FLARE:
+        {
+            // Smoothly slow the aircraft to a stop by pitching up, maintaining set point head speed throughout.
+            if (!_flags.flare_init) {
+                g2.arot.init_flare();
+                _flags.flare_init = true;
+            }
+            g2.arot.run_flare();
+            break;
+        }
+
         case Autorotation_Phase::TOUCH_DOWN:
         {
+            // Ensure vehicle is level and use energy stored in head to gently touch down on the ground
+            if (!_flags.touch_down_init) {
+                g2.arot.init_touchdown();
+                _flags.touch_down_init = true;
+            }
+            g2.arot.run_touchdown();
             break;
         }
         case Autorotation_Phase::LANDED:
@@ -141,5 +174,10 @@ void ModeAutorotate::run()
     }
 
 } // End function run()
+
+void ModeAutorotate::exit()
+{
+    g2.arot.exit();
+}
 
 #endif
