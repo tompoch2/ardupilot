@@ -48,8 +48,8 @@ RUN echo "if [ -d \"\$HOME/.local/bin\" ] ; then\nPATH=\"\$HOME/.local/bin:\$PAT
 RUN git clone --recurse-submodules https://github.com/ardupilot/Micro-XRCE-DDS-Gen.git /home/${USER_NAME}/Micro-XRCE-DDS-Gen \
     && cd /home/${USER_NAME}/Micro-XRCE-DDS-Gen \
     && ./gradlew assemble \
-    && export BASHRC_LOC="/home/${USER_NAME}/.bashrc" \
-    && echo "export PATH=\$PATH:$PWD/scripts" >> $BASHRC_LOC
+    && export AP_ENV_LOC="/home/${USER_NAME}/.ardupilot_env" \
+    && echo "export PATH=\$PATH:$PWD/scripts" >> $AP_ENV_LOC
 
 # Create entrypoint as docker cannot do shell substitution correctly
 RUN export ARDUPILOT_ENTRYPOINT="/home/${USER_NAME}/ardupilot_entrypoint.sh" \
