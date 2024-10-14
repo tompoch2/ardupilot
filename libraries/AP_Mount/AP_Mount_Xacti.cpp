@@ -424,21 +424,11 @@ void AP_Mount_Xacti::send_target_angles(float pitch_rad, float yaw_rad, bool yaw
 }
 
 // subscribe to Xacti DroneCAN messages
-void AP_Mount_Xacti::subscribe_msgs(AP_DroneCAN* ap_dronecan)
+bool AP_Mount_Xacti::subscribe_msgs(AP_DroneCAN* ap_dronecan, uint8_t driver_index)
 {
-    // return immediately if DroneCAN is unavailable
-    if (ap_dronecan == nullptr) {
-        GCS_SEND_TEXT(MAV_SEVERITY_CRITICAL, "%s DroneCAN subscribe failed", send_text_prefix);
-        return;
-    }
-
-    if (Canard::allocate_sub_arg_callback(ap_dronecan, &handle_gimbal_attitude_status, ap_dronecan->get_driver_index()) == nullptr) {
-        AP_BoardConfig::allocation_error("gimbal_attitude_status_sub");
-    }
-
-    if (Canard::allocate_sub_arg_callback(ap_dronecan, &handle_gnss_status_req, ap_dronecan->get_driver_index()) == nullptr) {
-        AP_BoardConfig::allocation_error("gnss_status_req_sub");
-    }
+    return (Canard::allocate_sub_arg_callback(ap_dronecan, &handle_gimbal_attitude_status, driver_index) != nullptr)
+        && (Canard::allocate_sub_arg_callback(ap_dronecan, &handle_gnss_status_req, driver_index) != nullptr)
+    ;
 }
 
 // register backend in detected modules array used to map DroneCAN port and node id to backend
