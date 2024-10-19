@@ -1050,7 +1050,7 @@ bool AP_DDS_Client::create()
         .id = 0x01,
         .type = UXR_PARTICIPANT_ID
     };
-    const char* participant_name = "ardupilot_dds";
+    const char* participant_name = AP_DDS_PARTICIPANT_NAME;
     const auto participant_req_id = uxr_buffer_create_participant_bin(&session, reliable_out, participant_id,
                                     static_cast<uint16_t>(domain_id), participant_name, UXR_REPLACE);
 

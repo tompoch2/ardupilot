@@ -33,3 +33,7 @@
 #define AP_DDS_DEFAULT_UDP_IP_ADDR "127.0.0.1"
 #endif
 #endif
+
+#ifndef AP_DDS_PARTICIPANT_NAME
+#define AP_DDS_PARTICIPANT_NAME "ap"
+#endif
