@@ -18,6 +18,7 @@ uint8 vehicle_type # From AP_Vehicle_Type.h
 bool armed # true if vehicle is armed.
 uint8 mode # Vehicle mode, enum depending on vehicle type.
 bool flying # True if flying/driving/diving/tracking.
+bool external_control # True is external control is enabled.
 
 uint8 FS_RADIO = 21
 uint8 FS_BATTERY = 22

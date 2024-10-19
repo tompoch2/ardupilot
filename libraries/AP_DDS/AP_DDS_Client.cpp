@@ -610,6 +610,7 @@ bool AP_DDS_Client::update_topic(ardupilot_msgs_msg_Status& msg)
     msg.armed = hal.util->get_soft_armed();
     msg.mode = vehicle->get_mode();
     msg.flying = vehicle->get_likely_flying();
+    msg.external_control = true; // Always true for now. To be filled after PR#28429.
     uint8_t fs_iter = 0;
     msg.failsafe_size = 0;
     if (AP_Notify::flags.failsafe_radio) {

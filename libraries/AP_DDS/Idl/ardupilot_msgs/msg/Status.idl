@@ -37,6 +37,10 @@ module ardupilot_msgs {
       boolean armed;
 
       @verbatim (language="comment", text=
+        "true is external control is enabled.")
+      boolean external_control;
+
+      @verbatim (language="comment", text=
         "Vehicle mode, enum depending on vehicle type.")
       uint8 mode;
 
