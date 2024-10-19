@@ -117,11 +117,11 @@ private:
     };
 
     // Time keeping
-    uint32_t last_stage_change;
-    uint32_t last_gain_report;
-    uint32_t last_pilot_input;
-    uint32_t last_warning;
-    uint32_t tune_done_time;
+    uint32_t last_stage_change_ms;
+    uint32_t last_gain_report_ms;
+    uint32_t last_pilot_input_ms;
+    uint32_t last_warning_ms;
+    uint32_t tune_done_time_ms;
 
     // Bitmasks
     uint32_t axes_done;
@@ -130,7 +130,6 @@ private:
 
     Stage current_stage = Stage::D;
     Param slew_parm = Param::END;
-    float slew_target;
     uint8_t slew_steps;
     float slew_delta;
     SwitchPos sw_pos; //Switch pos to be set by aux func
@@ -139,27 +138,27 @@ private:
 
     void reset_axes_done();
     void setup_filters(AxisName axis);
-    bool have_pilot_input();
-    AxisName get_current_axis();
-    float get_slew_rate(AxisName axis);
+    bool have_pilot_input() const;
+    AxisName get_current_axis() const;
+    float get_slew_rate(AxisName axis) const;
     void advance_stage(AxisName axis);
     void adjust_gain(Param param, float value);
     void adjust_gain_limited(Param param, float value);
-    float get_gain_mul();
+    float get_gain_mul() const;
     void restore_all_params();
     void save_all_params();
-    Param get_pname(AxisName axis, Stage stage);
-    AP_Float *get_param_pointer(Param param);
-    float get_param_value(Param param);
+    Param get_pname(AxisName axis, Stage stage) const;
+    AP_Float *get_param_pointer(Param param) const;
+    float get_param_value(Param param) const;
     void set_param_value(Param param, float value);
     void set_and_save_param_value(Param param, float value);
-    float gain_limit(Param param);
-    AxisName get_axis(Param param);
+    float gain_limit(Param param) const;
+    AxisName get_axis(Param param) const;
     float limit_gain(Param param, float value);
-    const char* get_param_name(Param param);
-    Stage get_stage(Param param);
-    const char* get_axis_name(AxisName axis);
-    AC_PID *get_axis_pid(AxisName axis);
+    const char* get_param_name(Param param) const;
+    Stage get_stage(Param param) const;
+    const char* get_axis_name(AxisName axis) const;
+    AC_PID *get_axis_pid(AxisName axis) const;
     void Write_QUIK(float SRate, float Gain, Param param);
 
     void abort_tune(void);

@@ -136,7 +136,7 @@ void AP_Quicktune::update(bool mode_supports_quicktune)
 {
     if (enable < 1) {
         if (need_restore) {
-            GCS_SEND_TEXT(MAV_SEVERITY_EMERGENCY, "QuickTune disabled");
+            GCS_SEND_TEXT(MAV_SEVERITY_WARNING, "QuickTune disabled");
             abort_tune();
         }
         return;
@@ -149,7 +149,7 @@ void AP_Quicktune::update(bool mode_supports_quicktune)
           pending parameter changes then revert
          */
         if (need_restore) {
-            GCS_SEND_TEXT(MAV_SEVERITY_EMERGENCY, "QuickTune aborted");
+            GCS_SEND_TEXT(MAV_SEVERITY_CRITICAL, "QuickTune aborted");
         }
         abort_tune();
         return;
@@ -158,14 +158,14 @@ void AP_Quicktune::update(bool mode_supports_quicktune)
     if (need_restore) {
         const float att_error = AC_AttitudeControl::get_singleton()->get_att_error_angle_deg();
         if (angle_max > 0 && att_error > angle_max) {
-            GCS_SEND_TEXT(MAV_SEVERITY_EMERGENCY, "Tuning: attitude error %.1fdeg - ABORTING", att_error);
+            GCS_SEND_TEXT(MAV_SEVERITY_CRITICAL, "Quicktune: attitude error %.1fdeg - ABORTING", att_error);
             abort_tune();
             return;
         }
     }
 
     if (have_pilot_input()) {
-        last_pilot_input = now;
+        last_pilot_input_ms = now;
     }
 
     SwitchPos sw_pos_tune = SwitchPos::MID;
@@ -177,9 +177,11 @@ void AP_Quicktune::update(bool mode_supports_quicktune)
 
     const auto &vehicle = *AP::vehicle();
 
-    if (sw_pos == sw_pos_tune && (!hal.util->get_soft_armed() || !vehicle.get_likely_flying()) && now > last_warning + 5000) {
-        GCS_SEND_TEXT(MAV_SEVERITY_EMERGENCY, "Tuning: Must be flying to tune");
-        last_warning = now;
+    if (sw_pos == sw_pos_tune &&
+        (!hal.util->get_soft_armed() || !vehicle.get_likely_flying()) &&
+        now > last_warning_ms + 5000) {
+        GCS_SEND_TEXT(MAV_SEVERITY_WARNING, "Quicktune: Must be flying to tune");
+        last_warning_ms = now;
         return;
     }
     if (sw_pos == SwitchPos::LOW || !hal.util->get_soft_armed() || !vehicle.get_likely_flying()) {
@@ -187,8 +189,8 @@ void AP_Quicktune::update(bool mode_supports_quicktune)
         if (need_restore) {
             need_restore = false;
             restore_all_params();
-            GCS_SEND_TEXT(MAV_SEVERITY_EMERGENCY, "Tuning: Reverted");
-            tune_done_time = 0;
+            GCS_SEND_TEXT(MAV_SEVERITY_WARNING, "Quicktune: Reverted");
+            tune_done_time_ms = 0;
         }
         reset_axes_done();
         return;
@@ -198,18 +200,17 @@ void AP_Quicktune::update(bool mode_supports_quicktune)
         if (need_restore) {
             need_restore = false;
             save_all_params();
-            GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Tuning: Saved");
         }
     }
     if (sw_pos != sw_pos_tune) {
         return;
     }
 
-    if (now - last_stage_change < STAGE_DELAY) {
+    if (now - last_stage_change_ms < STAGE_DELAY) {
         // Update slew gain
         if (slew_parm != Param::END) {
-            float P = get_param_value(slew_parm);
-            AxisName axis = get_axis(slew_parm);
+            const float P = get_param_value(slew_parm);
+            const AxisName axis = get_axis(slew_parm);
             // local ax_stage = string.sub(slew_parm, -1)
             adjust_gain(slew_parm, P+slew_delta);
             slew_steps = slew_steps - 1;
@@ -218,8 +219,8 @@ void AP_Quicktune::update(bool mode_supports_quicktune)
                 GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s %.4f", get_param_name(slew_parm), P);
                 slew_parm = Param::END;
                 if (get_current_axis() == AxisName::DONE) {
-                    GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Tuning: DONE");
-                    tune_done_time = now;
+                    GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Quicktune: DONE");
+                    tune_done_time_ms = now;
                 }
             }
         }
@@ -230,12 +231,11 @@ void AP_Quicktune::update(bool mode_supports_quicktune)
 
     if (axis == AxisName::DONE) {
         // Nothing left to do, check autosave time
-        if (tune_done_time != 0 && auto_save > 0) {
-            if (now - tune_done_time > (auto_save*1000)) {
+        if (tune_done_time_ms != 0 && auto_save > 0) {
+            if (now - tune_done_time_ms > (auto_save*1000)) {
                 need_restore = false;
                 save_all_params();
-                GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Tuning: Saved");
-                tune_done_time = 0;
+                tune_done_time_ms = 0;
             }
         }
         return;
@@ -244,7 +244,7 @@ void AP_Quicktune::update(bool mode_supports_quicktune)
     if (!need_restore) {
         need_restore = true;
         // We are just starting tuning, get current values
-        GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Tuning: Starting tune");
+        GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Quicktune: Starting tune");
         // Get all params
         for (uint8_t p = 0; p < uint8_t(Param::END); p++) {
             param_saved[p] = get_param_value(Param(p));
@@ -252,14 +252,14 @@ void AP_Quicktune::update(bool mode_supports_quicktune)
         // Set up SMAX
         const Param is[3] { Param::RLL_SMAX, Param::PIT_SMAX, Param::YAW_SMAX };
         for (const auto p : is) {
-            float smax = get_param_value(p);
+            const float smax = get_param_value(p);
             if (smax <= 0) {
                 adjust_gain(p, DEFAULT_SMAX);
             }
         }
     }
 
-    if (now - last_pilot_input < PILOT_INPUT_DELAY) {
+    if (now - last_pilot_input_ms < PILOT_INPUT_DELAY) {
         return;
     }
 
@@ -301,14 +301,14 @@ void AP_Quicktune::update(bool mode_supports_quicktune)
         }
         // Set up slew gain
         slew_parm = pname;
-        slew_target = limit_gain(pname, new_gain);
+        const float slew_target = limit_gain(pname, new_gain);
         slew_steps = UPDATE_RATE_HZ/2;
         slew_delta = (slew_target - get_param_value(pname)) / slew_steps;
 
         Write_QUIK(srate, pval, pname);
-        GCS_SEND_TEXT(MAV_SEVERITY_INFO, "Tuning: %s done", get_param_name(pname));
+        GCS_SEND_TEXT(MAV_SEVERITY_INFO, "Quicktune: %s done", get_param_name(pname));
         advance_stage(axis);
-        last_stage_change = now;
+        last_stage_change_ms = now;
     } else {
         float new_gain = pval*get_gain_mul();
         if (new_gain <= 0.0001) {
@@ -316,8 +316,8 @@ void AP_Quicktune::update(bool mode_supports_quicktune)
         }
         adjust_gain_limited(pname, new_gain);
         Write_QUIK(srate, pval, pname);
-        if (now - last_gain_report > 3000) {
-            last_gain_report = now;
+        if (now - last_gain_report_ms > 3000U) {
+            last_gain_report_ms = now;
             GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s %.4f sr:%.2f", get_param_name(pname), new_gain, srate);
         }
     }
@@ -332,7 +332,7 @@ void AP_Quicktune::abort_tune()
         need_restore = false;
         restore_all_params();
     }
-    tune_done_time = 0;
+    tune_done_time_ms = 0;
     reset_axes_done();
     sw_pos = SwitchPos::LOW;
 }
@@ -373,7 +373,7 @@ void AP_Quicktune::setup_filters(AP_Quicktune::AxisName axis)
 }
 
 // Check for pilot input to pause tune
-bool AP_Quicktune::have_pilot_input()
+bool AP_Quicktune::have_pilot_input() const
 {
     const auto &rcmap = *AP::rcmap();
     const float roll = rc().rc_channel(rcmap.roll()-1)->norm_input_dz();
@@ -387,7 +387,7 @@ bool AP_Quicktune::have_pilot_input()
 }
 
 // Get the axis name we are working on, or DONE for all done 
-AP_Quicktune::AxisName AP_Quicktune::get_current_axis()
+AP_Quicktune::AxisName AP_Quicktune::get_current_axis() const
 {
     for (int8_t i = 0; i < int8_t(AxisName::DONE); i++) {
         if (BIT_IS_SET(axes_enabled, i) == true && BIT_IS_SET(axes_done, i) == false) {
@@ -398,7 +398,7 @@ AP_Quicktune::AxisName AP_Quicktune::get_current_axis()
 }
 
 // get the AC_PID object for an axis
-AC_PID *AP_Quicktune::get_axis_pid(AP_Quicktune::AxisName axis)
+AC_PID *AP_Quicktune::get_axis_pid(AP_Quicktune::AxisName axis) const
 {
     auto &attitude_control = *AC_AttitudeControl::get_singleton();
     switch(axis) {
@@ -416,7 +416,7 @@ AC_PID *AP_Quicktune::get_axis_pid(AP_Quicktune::AxisName axis)
 }
 
 // get slew rate parameter for an axis
-float AP_Quicktune::get_slew_rate(AP_Quicktune::AxisName axis)
+float AP_Quicktune::get_slew_rate(AP_Quicktune::AxisName axis) const
 {
     auto *pid = get_axis_pid(axis);
     if (pid == nullptr) {
@@ -432,7 +432,7 @@ void AP_Quicktune::advance_stage(AP_Quicktune::AxisName axis)
         current_stage = Stage::P;
     } else {
         BIT_SET(axes_done, uint8_t(axis));
-        GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Tuning: %s done", get_axis_name(axis));
+        GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Quicktune: %s done", get_axis_name(axis));
         current_stage = Stage::D;
     }
 }
@@ -481,7 +481,7 @@ float AP_Quicktune::limit_gain(AP_Quicktune::Param param, float value)
         // Check if we exceeded gain reduction
         const float reduction_pct = 100.0 * (saved_value - value) / saved_value;
         if (reduction_pct > reduce_max) {
-            float new_value = saved_value * (100 - reduce_max) * 0.01;
+            const float new_value = saved_value * (100 - reduce_max) * 0.01;
             GCS_SEND_TEXT(MAV_SEVERITY_INFO, "Limiting %s %.3f -> %.3f", get_param_name(param), value, new_value);
             value = new_value;
         }
@@ -489,7 +489,7 @@ float AP_Quicktune::limit_gain(AP_Quicktune::Param param, float value)
    return value;
 }
 
-const char* AP_Quicktune::get_param_name(AP_Quicktune::Param param)
+const char* AP_Quicktune::get_param_name(AP_Quicktune::Param param) const
 {
     switch (param)
     {
@@ -517,7 +517,7 @@ const char* AP_Quicktune::get_param_name(AP_Quicktune::Param param)
     }
 }
 
-float AP_Quicktune::get_gain_mul()
+float AP_Quicktune::get_gain_mul() const
 {
    return expf(logf(2.0)/(UPDATE_RATE_HZ*double_time));
 }
@@ -541,9 +541,10 @@ void AP_Quicktune::save_all_params()
         param_saved[p] = get_param_value(param);
         BIT_CLEAR(param_changed, p);
     }
+    GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Quicktune: Saved");
 }
 
-AP_Quicktune::Param AP_Quicktune::get_pname(AP_Quicktune::AxisName axis, AP_Quicktune::Stage stage)
+AP_Quicktune::Param AP_Quicktune::get_pname(AP_Quicktune::AxisName axis, AP_Quicktune::Stage stage) const
 {
     const uint8_t axis_offset = uint8_t(axis) * param_per_axis;
     switch (stage)
@@ -562,7 +563,7 @@ AP_Quicktune::Param AP_Quicktune::get_pname(AP_Quicktune::AxisName axis, AP_Quic
     }
 }
 
-AP_Quicktune::Stage AP_Quicktune::get_stage(AP_Quicktune::Param param)
+AP_Quicktune::Stage AP_Quicktune::get_stage(AP_Quicktune::Param param) const
 {
     if (param == Param::RLL_P || param == Param::PIT_P || param == Param::YAW_P) {
         return Stage::P;
@@ -571,7 +572,7 @@ AP_Quicktune::Stage AP_Quicktune::get_stage(AP_Quicktune::Param param)
     }
 }
 
-AP_Float *AP_Quicktune::get_param_pointer(AP_Quicktune::Param param)
+AP_Float *AP_Quicktune::get_param_pointer(AP_Quicktune::Param param) const
 {
     const AxisName axis = AxisName(uint8_t(param) / param_per_axis);
     auto *pid = get_axis_pid(axis);
@@ -604,7 +605,7 @@ AP_Float *AP_Quicktune::get_param_pointer(AP_Quicktune::Param param)
     }
 }
 
-float AP_Quicktune::get_param_value(AP_Quicktune::Param param)
+float AP_Quicktune::get_param_value(AP_Quicktune::Param param) const
 {
     AP_Float *ptr = get_param_pointer(param);
     if (ptr != nullptr) {
@@ -629,7 +630,7 @@ void AP_Quicktune::set_and_save_param_value(AP_Quicktune::Param param, float val
     }
 }
 
-AP_Quicktune::AxisName AP_Quicktune::get_axis(AP_Quicktune::Param param)
+AP_Quicktune::AxisName AP_Quicktune::get_axis(AP_Quicktune::Param param) const
 {
     if (param >= Param::END) {
         return AxisName::END;
@@ -637,7 +638,7 @@ AP_Quicktune::AxisName AP_Quicktune::get_axis(AP_Quicktune::Param param)
     return AxisName(uint8_t(param) / param_per_axis);
 }
 
-const char* AP_Quicktune::get_axis_name(AP_Quicktune::AxisName axis)
+const char* AP_Quicktune::get_axis_name(AP_Quicktune::AxisName axis) const
 {
     switch (axis)
     {
@@ -653,7 +654,7 @@ const char* AP_Quicktune::get_axis_name(AP_Quicktune::AxisName axis)
     }
 }
 
-float AP_Quicktune::gain_limit(AP_Quicktune::Param param)
+float AP_Quicktune::gain_limit(AP_Quicktune::Param param) const
 {
     if (get_axis(param) == AxisName::YAW) {
         if (param == Param::YAW_P) {
