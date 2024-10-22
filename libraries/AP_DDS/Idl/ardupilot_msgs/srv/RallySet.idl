@@ -19,7 +19,7 @@ module ardupilot_msgs {
     @verbatim (language="comment", text=
       "True if the action is successful.")
     struct RallySet_Response {
-      uint8 success;
+      boolean success;
 
       @verbatim (language="comment", text=
         "Size of Rally Points list.")

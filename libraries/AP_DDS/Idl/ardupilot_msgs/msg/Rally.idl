@@ -6,6 +6,14 @@
 
 module ardupilot_msgs {
   module msg {
+    module Rally_Constants {
+      @verbatim (language="comment", text=
+        "Altitude reference frame")
+      const uint8 ALTITUDE_FRAME_ABSOLUTE = 0;
+      const uint8 ALTITUDE_FRAME_HOME = 1;
+      const uint8 ALTITUDE_FRAME_ORIGIN = 2;
+      const uint8 ALTITUDE_FRAME_TERRAIN = 3;
+    };
     struct Rally {
       geographic_msgs::msg::GeoPoint point;
 
@@ -18,15 +26,14 @@ module ardupilot_msgs {
       float land_dir;
 
       @verbatim (language="comment", text=
-        "uint8_t flags;" "\n"
-        "struct {" "\n"
-        "    uint8_t favorable_winds : 1; // bit 0 = seek favorable winds when choosing a landing poi" "\n"
-        "    uint8_t do_auto_land    : 1; // bit 1 = do auto land after arriving" "\n"
-        "    uint8_t alt_frame_valid : 1; // bit 2 = true if following alt frame value should be used, else Location::AltFrame::ABOVE_HOME" "\n"
-        "    uint8_t alt_frame       : 2; // Altitude frame following Location::AltFrame enum" "\n"
-        "    uint8_t unused          : 3;" "\n"
-        "};")
-      uint8 flags;
+        "seek favorable winds when choosing a landing poi")
+      boolean flag_favorable_winds;
+
+      @verbatim (language="comment", text=
+        "do auto land after arriving")
+      boolean flag_do_auto_land;
+
+      uint8 altitude_frame;
     };
   };
 };

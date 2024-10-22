@@ -8,6 +8,6 @@ ardupilot_msgs/Rally rally
 bool clear
 ---
 # True if the action is successful.
-uint8 success
+bool success
 # Size of Rally Points list.
 uint8 size

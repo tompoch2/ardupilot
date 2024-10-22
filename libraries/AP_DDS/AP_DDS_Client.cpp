@@ -814,7 +814,15 @@ void AP_DDS_Client::on_request(uxrSession* uxr_session, uxrObjectId object_id, u
             rally_get_response.rally.point.altitude = rally_location.alt;
             rally_get_response.rally.break_altitude = rally_location.break_alt;
             rally_get_response.rally.land_dir = rally_location.land_dir * 1e-2f;
-            rally_get_response.rally.flags = rally_location.flags;
+            rally_get_response.rally.flag_favorable_winds = rally_location.flags & (1 << 0);
+            rally_get_response.rally.flag_do_auto_land = rally_location.flags & (1 << 1);
+            bool alt_frame_valid = rally_location.flags & (1 << 2);
+            if (alt_frame_valid) {
+                rally_get_response.rally.altitude_frame = (rally_location.flags >> 3) & ((1 << 2) - 1);
+            } else {
+                rally_get_response.rally.altitude_frame = static_cast<uint8_t>(Location::AltFrame::ABOVE_HOME);
+            }
+            // rally_get_response.rally.flags = rally_location.flags;
             GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s Request Rally index %u is valid: lat: %f  lon: %f",
                           msg_prefix, rally_get_request.index, rally_get_response.rally.point.latitude, rally_get_response.rally.point.longitude);
         } else {
@@ -853,27 +861,34 @@ void AP_DDS_Client::on_request(uxrSession* uxr_session, uxrObjectId object_id, u
         AP_Rally *rally = AP::rally();
 
         if (rally_set_request.clear) {
-            GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s Clear Rally List", msg_prefix);
             rally->truncate(0);
             rally_set_response.success = rally->get_rally_total() == 0;
+            if (rally_set_response.success) {
+                GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s Rally Point List cleared", msg_prefix);
+            }
         } else {
             rally_location.lat = static_cast<int32_t>(rally_set_request.rally.point.latitude * 1e7);
             rally_location.lng = static_cast<int32_t>(rally_set_request.rally.point.longitude * 1e7);
             rally_location.alt = static_cast<int16_t>(rally_set_request.rally.point.altitude);
             rally_location.break_alt = static_cast<int16_t>(rally_set_request.rally.break_altitude);
             rally_location.land_dir = static_cast<int16_t>(rally_set_request.rally.land_dir);
-            rally_location.flags = rally_set_request.rally.flags;
+            rally_location.flags = 0;
+            rally_location.flags |= ((rally_set_request.rally.flag_favorable_winds ? 1 : 0) << 0);
+            rally_location.flags |= ((rally_set_request.rally.flag_do_auto_land ? 1 : 0) << 1);
+            rally_location.flags |= (1 << 2); // Use the provided frame.
+            rally_location.flags |= (rally_set_request.rally.altitude_frame << 3);
 
-            if (rally_location.lat != 0 && rally_location.lng != 0) {
+            if (rally_location.lat != 0 && rally_location.lng != 0
+                && rally_set_request.rally.altitude_frame <= static_cast<uint8_t>(Location::AltFrame::ABOVE_TERRAIN)) {
                 if (rally->append(rally_location)) {
                     rally_set_response.success = true;
                     GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s Rally Point appended", msg_prefix);
                 } else {
-                    GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s Failed to append Rally Point", msg_prefix);
+                    GCS_SEND_TEXT(MAV_SEVERITY_WARNING, "%s Failed to append Rally Point", msg_prefix);
                     rally_set_response.success = false;
                 }
             } else {
-                GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s Invalid Rally requested", msg_prefix);
+                GCS_SEND_TEXT(MAV_SEVERITY_WARNING, "%s Invalid Rally requested", msg_prefix);
                 rally_set_response.success = false;
             }
         }
