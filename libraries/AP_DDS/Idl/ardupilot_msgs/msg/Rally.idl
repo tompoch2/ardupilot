@@ -1,0 +1,32 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from ardupilot_msgs/msg/Rally.msg
+// generated code does not contain a copyright notice
+
+#include "geographic_msgs/msg/GeoPoint.idl"
+
+module ardupilot_msgs {
+  module msg {
+    struct Rally {
+      geographic_msgs::msg::GeoPoint point;
+
+      @verbatim (language="comment", text=
+        "when autolanding, break out of loiter at this alt (meters)")
+      float break_altitude;
+
+      @verbatim (language="comment", text=
+        "when the time comes to auto-land, try to land in this direction (degrees)")
+      float land_dir;
+
+      @verbatim (language="comment", text=
+        "uint8_t flags;" "\n"
+        "struct {" "\n"
+        "    uint8_t favorable_winds : 1; // bit 0 = seek favorable winds when choosing a landing poi" "\n"
+        "    uint8_t do_auto_land    : 1; // bit 1 = do auto land after arriving" "\n"
+        "    uint8_t alt_frame_valid : 1; // bit 2 = true if following alt frame value should be used, else Location::AltFrame::ABOVE_HOME" "\n"
+        "    uint8_t alt_frame       : 2; // Altitude frame following Location::AltFrame enum" "\n"
+        "    uint8_t unused          : 3;" "\n"
+        "};")
+      uint8 flags;
+    };
+  };
+};

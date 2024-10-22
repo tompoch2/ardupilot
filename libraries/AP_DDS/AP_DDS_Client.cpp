@@ -15,9 +15,12 @@
 #include <AP_Arming/AP_Arming.h>
 #include <AP_Vehicle/AP_Vehicle.h>
 #include <AP_ExternalControl/AP_ExternalControl_config.h>
+#include <AP_Rally/AP_Rally.h>
 
 #include "ardupilot_msgs/srv/ArmMotors.h"
 #include "ardupilot_msgs/srv/ModeSwitch.h"
+#include "ardupilot_msgs/srv/RallyGet.h"
+#include "ardupilot_msgs/srv/RallySet.h"
 
 #if AP_EXTERNAL_CONTROL_ENABLED
 #include "AP_DDS_ExternalControl.h"
@@ -787,6 +790,107 @@ void AP_DDS_Client::on_request(uxrSession* uxr_session, uxrObjectId object_id, u
 
         uxr_buffer_reply(uxr_session, reliable_out, replier_id, sample_id, reply_buffer, ucdr_buffer_length(&reply_ub));
         GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s Request for Mode Switch : %s", msg_prefix, mode_switch_response.status ? "SUCCESS" : "FAIL");
+        break;
+    }
+    case services[to_underlying(ServiceIndex::GET_RALLY)].rep_id: {
+        ardupilot_msgs_srv_RallyGet_Request rally_get_request;
+        ardupilot_msgs_srv_RallyGet_Response rally_get_response;
+        const bool deserialize_success = ardupilot_msgs_srv_RallyGet_Request_deserialize_topic(ub, &rally_get_request);
+        if (deserialize_success == false) {
+            break;
+        }
+
+        const uxrObjectId replier_id = {
+            .id = services[to_underlying(ServiceIndex::GET_RALLY)].rep_id,
+            .type = UXR_REPLIER_ID
+        };
+
+        RallyLocation rally_location {};
+        const AP_Rally *rally = AP::rally();
+        if (rally->get_rally_point_with_index(rally_get_request.index, rally_location)) {
+            rally_get_response.success = true;
+            rally_get_response.rally.point.latitude = rally_location.lat * 1e-7;
+            rally_get_response.rally.point.longitude = rally_location.lng * 1e-7;
+            rally_get_response.rally.point.altitude = rally_location.alt;
+            rally_get_response.rally.break_altitude = rally_location.break_alt;
+            rally_get_response.rally.land_dir = rally_location.land_dir * 1e-2f;
+            rally_get_response.rally.flags = rally_location.flags;
+            GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s Request Rally index %u is valid: lat: %f  lon: %f",
+                          msg_prefix, rally_get_request.index, rally_get_response.rally.point.latitude, rally_get_response.rally.point.longitude);
+        } else {
+            GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s Request Rally index %u is invalid", msg_prefix, rally_get_request.index);
+            rally_get_response.success = false;
+        }
+
+        uint8_t reply_buffer[ardupilot_msgs_srv_RallyGet_Response_size_of_topic(&rally_get_response, 0)] {};
+        ucdrBuffer reply_ub;
+
+        ucdr_init_buffer(&reply_ub, reply_buffer, sizeof(reply_buffer));
+        const bool serialize_success = ardupilot_msgs_srv_RallyGet_Response_serialize_topic(&reply_ub, &rally_get_response);
+        if (serialize_success == false) {
+            break;
+        }
+
+        uxr_buffer_reply(uxr_session, reliable_out, replier_id, sample_id, reply_buffer, ucdr_buffer_length(&reply_ub));
+
+        break;
+    }
+    case services[to_underlying(ServiceIndex::SET_RALLY)].rep_id: {
+
+        ardupilot_msgs_srv_RallySet_Request rally_set_request;
+        ardupilot_msgs_srv_RallySet_Response rally_set_response;
+        const bool deserialize_success = ardupilot_msgs_srv_RallySet_Request_deserialize_topic(ub, &rally_set_request);
+        if (deserialize_success == false) {
+            break;
+        }
+
+        const uxrObjectId replier_id = {
+            .id = services[to_underlying(ServiceIndex::SET_RALLY)].rep_id,
+            .type = UXR_REPLIER_ID
+        };
+
+        RallyLocation rally_location{};
+        AP_Rally *rally = AP::rally();
+
+        if (rally_set_request.clear) {
+            GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s Clear Rally List", msg_prefix);
+            rally->truncate(0);
+            rally_set_response.success = rally->get_rally_total() == 0;
+        } else {
+            rally_location.lat = static_cast<int32_t>(rally_set_request.rally.point.latitude * 1e7);
+            rally_location.lng = static_cast<int32_t>(rally_set_request.rally.point.longitude * 1e7);
+            rally_location.alt = static_cast<int16_t>(rally_set_request.rally.point.altitude);
+            rally_location.break_alt = static_cast<int16_t>(rally_set_request.rally.break_altitude);
+            rally_location.land_dir = static_cast<int16_t>(rally_set_request.rally.land_dir);
+            rally_location.flags = rally_set_request.rally.flags;
+
+            if (rally_location.lat != 0 && rally_location.lng != 0) {
+                if (rally->append(rally_location)) {
+                    rally_set_response.success = true;
+                    GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s Rally Point appended", msg_prefix);
+                } else {
+                    GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s Failed to append Rally Point", msg_prefix);
+                    rally_set_response.success = false;
+                }
+            } else {
+                GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s Invalid Rally requested", msg_prefix);
+                rally_set_response.success = false;
+            }
+        }
+
+        rally_set_response.size = rally->get_rally_total();
+
+        uint8_t reply_buffer[ardupilot_msgs_srv_RallySet_Response_size_of_topic(&rally_set_response, 0)] {};
+        ucdrBuffer reply_ub;
+
+        ucdr_init_buffer(&reply_ub, reply_buffer, sizeof(reply_buffer));
+        const bool serialize_success = ardupilot_msgs_srv_RallySet_Response_serialize_topic(&reply_ub, &rally_set_response);
+        if (serialize_success == false) {
+            break;
+        }
+
+        uxr_buffer_reply(uxr_session, reliable_out, replier_id, sample_id, reply_buffer, ucdr_buffer_length(&reply_ub));
+
         break;
     }
     }

@@ -1,0 +1,10 @@
+
+# This service requests a Rally point from its ID.
+
+# Rally Point ID.
+uint8 index
+---
+# True is the retrieved point is valid.
+bool success
+# Rally point.
+ardupilot_msgs/Rally rally
