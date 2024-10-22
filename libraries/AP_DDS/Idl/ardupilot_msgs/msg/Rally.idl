@@ -18,7 +18,7 @@ module ardupilot_msgs {
       geographic_msgs::msg::GeoPoint point;
 
       @verbatim (language="comment", text=
-        "when autolanding, break out of loiter at this alt (meters)")
+        "when autolanding, break out of loiter at this alt relative to Home (meters)")
       float break_altitude;
 
       @verbatim (language="comment", text=
