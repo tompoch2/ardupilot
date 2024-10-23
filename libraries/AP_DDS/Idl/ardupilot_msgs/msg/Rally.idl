@@ -22,7 +22,7 @@ module ardupilot_msgs {
       float break_altitude;
 
       @verbatim (language="comment", text=
-        "when the time comes to auto-land, try to land in this direction (degrees)")
+        "Heading to aim for when landing (degrees)")
       float land_dir;
 
       @verbatim (language="comment", text=

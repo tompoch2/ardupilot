@@ -871,7 +871,7 @@ void AP_DDS_Client::on_request(uxrSession* uxr_session, uxrObjectId object_id, u
             rally_location.lng = static_cast<int32_t>(rally_set_request.rally.point.longitude * 1e7);
             rally_location.alt = static_cast<int16_t>(rally_set_request.rally.point.altitude);
             rally_location.break_alt = static_cast<int16_t>(rally_set_request.rally.break_altitude);
-            rally_location.land_dir = static_cast<int16_t>(rally_set_request.rally.land_dir);
+            rally_location.land_dir = static_cast<int16_t>(rally_set_request.rally.land_dir * 1e2f);
             rally_location.flags = 0;
             rally_location.flags |= ((rally_set_request.rally.flag_favorable_winds ? 1 : 0) << 0);
             rally_location.flags |= ((rally_set_request.rally.flag_do_auto_land ? 1 : 0) << 1);
