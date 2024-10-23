@@ -36,9 +36,6 @@ from launch_pytest.tools import process as process_tools
 from launch import LaunchDescription
 import threading
 
-GUIDED = 4
-LOITER = 5
-
 RALLY_0 = Rally()
 RALLY_0.point.latitude =-35.0
 RALLY_0.point.longitude = 149.0
