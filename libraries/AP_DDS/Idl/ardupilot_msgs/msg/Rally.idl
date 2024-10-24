@@ -1,0 +1,39 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from ardupilot_msgs/msg/Rally.msg
+// generated code does not contain a copyright notice
+
+#include "geographic_msgs/msg/GeoPoint.idl"
+
+module ardupilot_msgs {
+  module msg {
+    module Rally_Constants {
+      @verbatim (language="comment", text=
+        "Altitude reference frame")
+      const uint8 ALTITUDE_FRAME_ABSOLUTE = 0;
+      const uint8 ALTITUDE_FRAME_HOME = 1;
+      const uint8 ALTITUDE_FRAME_ORIGIN = 2;
+      const uint8 ALTITUDE_FRAME_TERRAIN = 3;
+    };
+    struct Rally {
+      geographic_msgs::msg::GeoPoint point;
+
+      @verbatim (language="comment", text=
+        "when autolanding, break out of loiter at this alt relative to Home (meters)")
+      float break_altitude;
+
+      @verbatim (language="comment", text=
+        "Heading to aim for when landing (degrees)")
+      float land_dir;
+
+      @verbatim (language="comment", text=
+        "seek favorable winds when choosing a landing poi")
+      boolean flag_favorable_winds;
+
+      @verbatim (language="comment", text=
+        "do auto land after arriving")
+      boolean flag_do_auto_land;
+
+      uint8 altitude_frame;
+    };
+  };
+};

@@ -6,6 +6,7 @@ project(ardupilot_msgs)
 
 find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(geographic_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
@@ -14,9 +15,12 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/GlobalPosition.msg"
+  "msg/Rally.msg"
   "srv/ArmMotors.srv"
   "srv/ModeSwitch.srv"
-  DEPENDENCIES geometry_msgs std_msgs
+  "srv/RallyGet.srv"
+  "srv/RallySet.srv"
+  DEPENDENCIES geometry_msgs std_msgs geographic_msgs
   ADD_LINTER_TESTS
 )
 
