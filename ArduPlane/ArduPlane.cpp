@@ -875,8 +875,13 @@ bool Plane::set_target_yaw_rate(const float yaw_rate)
     }
 
     const auto direction_is_ccw = yaw_rate < 0;
-    plane.mode_guided.set_radius_and_direction(abs(yaw_rate), direction_is_ccw);
-
+    if (!is_zero(yaw_rate)) {
+        auto const speed = plane.ahrs.groundspeed();
+        auto const radius = speed / yaw_rate;
+        plane.mode_guided.set_radius_and_direction(abs(radius), direction_is_ccw);
+    } else {
+        plane.mode_guided.set_radius_and_direction(0.0, true);
+    }
     return true;
 }
 #endif //AP_SCRIPTING_ENABLED || AP_EXTERNAL_CONTROL_ENABLED
