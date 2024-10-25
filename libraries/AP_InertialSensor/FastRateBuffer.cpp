@@ -31,6 +31,7 @@ extern const AP_HAL::HAL& hal;
 #define debug(fmt, args ...)  do {printf("IMU: " fmt "\n", ## args); } while(0)
 #endif
 
+// enable the fast rate buffer and start pushing samples to it
 void AP_InertialSensor::enable_fast_rate_buffer()
 {
     if (fast_rate_buffer_enabled) {
@@ -42,19 +43,30 @@ void AP_InertialSensor::enable_fast_rate_buffer()
     fast_rate_buffer_enabled = true;
 }
 
+// disable the fast rate buffer and stop pushing samples to it
 void AP_InertialSensor::disable_fast_rate_buffer()
 {
     fast_rate_buffer_enabled = false;
-    fast_rate_buffer->reset();
+    if (fast_rate_buffer != nullptr) {
+        fast_rate_buffer->reset();
+    }
 }
 
+// get the number of available gyro samples in the fast rate buffer
 uint32_t AP_InertialSensor::get_num_gyro_samples()
 {
+    if (fast_rate_buffer == nullptr) {
+        return 0;
+    }
     return fast_rate_buffer->get_num_gyro_samples();
 }
 
+// set the rate at which samples are collected, unused samples are dropped
 void AP_InertialSensor::set_rate_decimation(uint8_t rdec)
 {
+    if (fast_rate_buffer == nullptr) {
+        return;
+    }
     fast_rate_buffer->set_rate_decimation(rdec);
 }
 
@@ -64,6 +76,7 @@ bool AP_InertialSensor::is_rate_loop_gyro_enabled(uint8_t instance) const
     return fast_rate_buffer_enabled && fast_rate_buffer->use_rate_loop_gyro_samples() && instance == AP::ahrs().get_primary_gyro_index();
 }
 
+// get the next available gyro sample from the fast rate buffer
 bool AP_InertialSensor::get_next_gyro_sample(Vector3f& gyro)
 {
     if (!fast_rate_buffer_enabled) {
@@ -72,6 +85,7 @@ bool AP_InertialSensor::get_next_gyro_sample(Vector3f& gyro)
 
     return fast_rate_buffer->get_next_gyro_sample(gyro);
 }
+
 
 bool FastRateBuffer::get_next_gyro_sample(Vector3f& gyro)
 {
@@ -95,6 +109,10 @@ void FastRateBuffer::reset()
 
 bool AP_InertialSensor::push_next_gyro_sample(const Vector3f& gyro)
 {
+    if (fast_rate_buffer == nullptr) {
+        return false;
+    }
+
     if (++fast_rate_buffer->rate_decimation_count < fast_rate_buffer->rate_decimation) {
         return false;
     }
