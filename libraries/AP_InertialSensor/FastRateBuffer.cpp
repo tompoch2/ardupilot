@@ -33,13 +33,19 @@ extern const AP_HAL::HAL& hal;
 
 void AP_InertialSensor::enable_fast_rate_buffer()
 {
-    fast_rate_buffer = NEW_NOTHROW FastRateBuffer();
+    if (fast_rate_buffer_enabled) {
+        return;
+    }
+    if (fast_rate_buffer == nullptr) {
+        fast_rate_buffer = NEW_NOTHROW FastRateBuffer();
+    }
+    fast_rate_buffer_enabled = true;
 }
 
 void AP_InertialSensor::disable_fast_rate_buffer()
 {
-    delete fast_rate_buffer;
-    fast_rate_buffer = nullptr;
+    fast_rate_buffer_enabled = false;
+    fast_rate_buffer->reset();
 }
 
 uint32_t AP_InertialSensor::get_num_gyro_samples()
@@ -52,21 +58,15 @@ void AP_InertialSensor::set_rate_decimation(uint8_t rdec)
     fast_rate_buffer->set_rate_decimation(rdec);
 }
 
-// are gyro samples being sourced from the rate loop buffer
-bool AP_InertialSensor::use_rate_loop_gyro_samples() const
-{
-    return fast_rate_buffer != nullptr;
-}
-
 // whether or not to push the current gyro sample
 bool AP_InertialSensor::is_rate_loop_gyro_enabled(uint8_t instance) const
 {
-    return use_rate_loop_gyro_samples() && fast_rate_buffer->use_rate_loop_gyro_samples() && instance == AP::ahrs().get_primary_gyro_index();
+    return fast_rate_buffer_enabled && fast_rate_buffer->use_rate_loop_gyro_samples() && instance == AP::ahrs().get_primary_gyro_index();
 }
 
 bool AP_InertialSensor::get_next_gyro_sample(Vector3f& gyro)
 {
-    if (!use_rate_loop_gyro_samples()) {
+    if (!fast_rate_buffer_enabled) {
         return false;
     }
 
@@ -86,6 +86,11 @@ bool FastRateBuffer::get_next_gyro_sample(Vector3f& gyro)
     WITH_SEMAPHORE(_mutex);
 
     return _rate_loop_gyro_window.pop(gyro);
+}
+
+void FastRateBuffer::reset()
+{
+    _rate_loop_gyro_window.clear();
 }
 
 bool AP_InertialSensor::push_next_gyro_sample(const Vector3f& gyro)
