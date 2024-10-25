@@ -252,18 +252,8 @@ void Copter::rate_controller_thread()
         min_dt = MIN(dt, min_dt);
 
 #if HAL_LOGGING_ENABLED
-// @LoggerMessage: RTDT
-// @Description: Attitude controller time deltas
-// @Field: TimeUS: Time since system startup
-// @Field: dt: current time delta
-// @Field: dtAvg: current time delta average
-// @Field: dtMax: Max time delta since last log output
-// @Field: dtMin: Min time delta since last log output
-
-        if (now_ms - last_rtdt_log_ms >= 10) {    // 100 Hz
-            AP::logger().WriteStreaming("RTDT", "TimeUS,dt,dtAvg,dtMax,dtMin", "Qffff",
-                                                AP_HAL::micros64(),
-                                                dt, sensor_dt, max_dt, min_dt);
+        if (now_ms - last_rtdt_log_ms >= 100) {    // 10 Hz
+            Log_Write_Rate_Thread_Dt(dt, sensor_dt, max_dt, min_dt);
             max_dt = sensor_dt;
             min_dt = sensor_dt;
             last_rtdt_log_ms = now_ms;
